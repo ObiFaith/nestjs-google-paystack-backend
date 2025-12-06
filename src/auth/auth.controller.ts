@@ -12,6 +12,7 @@ import {
 import express from 'express';
 import * as _interface from './interface';
 import { AuthService } from './auth.service';
+import { ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -19,9 +20,15 @@ export class AuthController {
 
   @Get('google')
   @HttpCode(HttpStatus.OK)
+  @ApiResponse({ status: HttpStatus.OK, description: 'Get Google OAuth URL' })
+  @ApiQuery({
+    name: 'response_type',
+    required: false,
+    description: 'Response type for OAuth',
+  })
   googleSignIn(
-    @Query('response_type') responseType: string,
     @Res({ passthrough: true }) res: express.Response,
+    @Query('response_type') responseType?: string,
   ) {
     try {
       const googleAuthUrl = this.authService.googleOauth();
@@ -59,16 +66,29 @@ export class AuthController {
 
   @Get('google/callback')
   @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Handles the Google OAuth callback and returns a JWT access token for the authenticated user.',
+  })
   async googleCallback(@Query() query: _interface.CallbackQuery) {
     if (!query.code) {
       throw new BadRequestException('Missing code');
     }
 
     try {
-      const { user, isNewUser } = await this.authService.googleCallback(
-        query.code,
-      );
-      return { message: 'User created sucessfully!', ...user, isNewUser };
+      const {
+        user,
+        isNewUser: is_new_user,
+        access_token,
+      } = await this.authService.googleCallback(query.code);
+
+      return {
+        message: 'User created sucessfully!',
+        ...user,
+        is_new_user,
+        access_token,
+      };
     } catch (error) {
       console.error('Google Callback error:', error);
 

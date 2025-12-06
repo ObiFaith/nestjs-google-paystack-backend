@@ -2,44 +2,49 @@ import {
   Controller,
   Post,
   Body,
-  Headers,
-  Get,
-  Param,
-  Query,
   Req,
+  UseGuards,
+  Headers,
 } from '@nestjs/common';
-import { PaystackService } from './payment.service';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import * as _interface from 'src/auth/interface';
+import { PaymentService } from './payment.service';
+import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
 
-@Controller('payments/paystack')
-export class PaystackController {
-  constructor(private readonly paystackService: PaystackService) {}
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('payments')
+export class PaymentController {
+  constructor(private readonly paymentService: PaymentService) {}
 
   /** Initiate payment */
-  @Post('initiate')
-  async initiate(@Body() body: { amount: number }, @Req() req) {
-    const userEmail = req.user.email;
-    const { amount } = body;
-    return this.paystackService.initiateTransaction(userEmail, amount);
+  @Post('paystack/initiate')
+  async initiate(
+    @Body() body: { amount: number },
+    @Req() req: _interface.AuthenticatedRequest,
+  ) {
+    console.log('user email', req.user.email);
+    return this.paymentService.initiatePayment(req.user.email, body.amount);
   }
 
   /** Webhook endpoint */
-  @Post('webhook')
+  @Post('paystack/webhook')
   async webhook(
     @Body() body: any,
-    @Headers('x-paystack-signature') signature: string,
+    @Headers('x-payment-signature') signature: string,
   ) {
-    return this.paystackService.handleWebhook(body, signature);
+    return this.paymentService.handleWebhook(body, signature);
   }
 
   /** Check transaction status */
-  @Get(':reference/status')
+  @Get('aystack/:reference/status')
   async status(
     @Param('reference') reference: string,
     @Query('refresh') refresh?: boolean,
   ) {
     if (refresh === 'true') {
-      return this.paystackService.verifyTransaction(reference);
+      return this.paymentService.verifyTransaction(reference);
     }
-    return this.paystackService.verifyTransaction(reference);
+    return this.paymentService.verifyTransaction(reference);
   }
 }

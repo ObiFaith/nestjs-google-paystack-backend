@@ -5,43 +5,42 @@ import {
 } from '@nestjs/common';
 import axios from 'axios';
 import * as crypto from 'crypto';
-import { Repository, Transaction } from 'typeorm';
+import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Payment } from './entities/payment.entity';
 
 @Injectable()
-export class PaystackService {
-  private readonly paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+export class PaymentService {
+  private readonly paymentSecret = process.env.PAYSTACK_SECRET_KEY;
   private readonly webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
 
   constructor(
-    @InjectRepository(Transaction)
-    private readonly transactionRepo: Repository<Transaction>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
   ) {}
 
-  /** Initiate a Paystack transaction */
-  async initiateTransaction(userEmail: string, amount: number) {
+  /** Initiate a Paystack payment */
+  async initiatePayment(userEmail: string, amount: number) {
     if (!amount || amount <= 0) {
       throw new BadRequestException('Invalid amount');
     }
 
     try {
       const { data } = await axios.post(
-        'https://api.paystack.co/transaction/initialize',
+        'https://api.payment.co/payment/initialize',
         { email: userEmail, amount },
-        { headers: { Authorization: `Bearer ${this.paystackSecret}` } },
+        { headers: { Authorization: `Bearer ${this.paymentSecret}` } },
       );
-
-      console.log('paystack', data);
 
       const { reference, authorization_url } = data.data;
 
-      const transaction = this.transactionRepo.create({
+      const payment = this.paymentRepo.create({
         reference,
         email: userEmail,
         amount,
         status: 'pending',
       });
-      await this.transactionRepo.save(transaction);
+      await this.paymentRepo.save(payment);
 
       return { reference, authorization_url };
     } catch (error) {
@@ -49,22 +48,22 @@ export class PaystackService {
     }
   }
 
-  /** Verify transaction from Paystack */
-  async verifyTransaction(reference: string) {
+  /** Verify payment from Payment */
+  async verifyPayment(reference: string) {
     try {
       const response = await axios.get(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        { headers: { Authorization: `Bearer ${this.paystackSecret}` } },
+        `https://api.payment.co/payment/verify/${reference}`,
+        { headers: { Authorization: `Bearer ${this.paymentSecret}` } },
       );
 
       const data = response.data.data;
-      const transaction = await this.transactionRepo.findOne({
+      const payment = await this.paymentRepo.findOne({
         where: { reference },
       });
-      if (transaction) {
-        transaction.status = data.status;
-        transaction.paidAt = new Date(data.paid_at);
-        await this.transactionRepo.save(transaction);
+      if (payment) {
+        payment.status = data.status;
+        payment.paidAt = new Date(data.paid_at);
+        await this.paymentRepo.save(payment);
       }
 
       return {
@@ -74,7 +73,7 @@ export class PaystackService {
         paidAt: data.paid_at,
       };
     } catch (error) {
-      throw new InternalServerErrorException('Failed to verify transaction');
+      throw new InternalServerErrorException('Failed to verify payment');
     }
   }
 
@@ -92,19 +91,17 @@ export class PaystackService {
     const event = payload.event;
     const data = payload.data;
 
-    const transaction = await this.transactionRepo.findOne({
+    const payment = await this.paymentRepo.findOne({
       where: { reference: data.reference },
     });
-    if (!transaction) return { status: true };
+    if (!payment) return { status: true };
 
-    if (event === 'charge.success') transaction.status = 'success';
-    else if (event === 'charge.failed') transaction.status = 'failed';
-    else transaction.status = 'pending';
+    if (event === 'charge.success') payment.status = 'success';
+    else if (event === 'charge.failed') payment.status = 'failed';
+    else payment.status = 'pending';
 
-    transaction.paidAt = data.paid_at
-      ? new Date(data.paid_at)
-      : transaction.paidAt;
-    await this.transactionRepo.save(transaction);
+    payment.paidAt = data.paid_at ? new Date(data.paid_at) : payment.paidAt;
+    await this.paymentRepo.save(payment);
 
     return { status: true };
   }

@@ -1,13 +1,11 @@
 import config from './config';
 import { Module } from '@nestjs/common';
-import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { AppController } from './app.controller';
 import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DatabaseModule } from './database/database.module';
 import { PaymentModule } from './payment/payment.module';
+import { DatabaseModule } from './database/database.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -20,11 +18,11 @@ import { PaymentModule } from './payment/payment.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASS'),
-        database: config.get<string>('DB_NAME'),
+        host: config.get<string>('DB_HOST', 'localhost'),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get<string>('DB_USER', 'postgres'),
+        password: config.get<string>('DB_PASS', 'Kalilinux1'),
+        database: config.get<string>('DB_NAME', 'mydb'),
         autoLoadEntities: true,
         synchronize: true,
         logging: true,
@@ -35,7 +33,5 @@ import { PaymentModule } from './payment/payment.module';
     DatabaseModule,
     PaymentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

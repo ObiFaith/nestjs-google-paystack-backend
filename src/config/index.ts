@@ -1,4 +1,5 @@
 export default () => ({
+  jwtSecret: process.env.JWT_SECRET ?? '',
   google: {
     apiUrl: process.env.GOOGLE_API_URL ?? '',
     oauthUrl: process.env.GOOGLE_OAUTH_URL ?? '',

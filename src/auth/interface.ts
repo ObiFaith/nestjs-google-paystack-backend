@@ -20,3 +20,7 @@ export interface GoogleUserInfoResponse {
   name: string;
   picture: string;
 }
+
+export interface AuthenticatedRequest extends Request {
+  user: { userId: string; email: string };
+}
