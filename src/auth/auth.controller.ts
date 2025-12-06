@@ -7,6 +7,7 @@ import {
   Res,
   BadRequestException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import express from 'express';
 import * as _interface from './interface';
@@ -57,11 +58,30 @@ export class AuthController {
   }
 
   @Get('google/callback')
+  @HttpCode(HttpStatus.OK)
   async googleCallback(@Query() query: _interface.CallbackQuery) {
+    if (!query.code) {
+      throw new BadRequestException('Missing code');
+    }
+
     try {
-      return this.authService.googleCallback(query.code);
+      const { user, isNewUser } = await this.authService.googleCallback(
+        query.code,
+      );
+      return { message: 'User created sucessfully!', ...user, isNewUser };
     } catch (error) {
       console.error('Google Callback error:', error);
+
+      // Handle known NestJS exceptions
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        throw error;
+      }
+
+      // Catch-all for unexpected errors
+      throw new InternalServerErrorException('Google provider error');
     }
   }
 }

@@ -1,5 +1,9 @@
 import axios from 'axios';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleUserInfoResponse, TokenResponse } from './interface';
 import { UserService } from 'src/user/user.service';
@@ -21,21 +25,13 @@ export class AuthService {
   }
 
   async googleCallback(code: string) {
-    const apiUrl = this.config.get<string>('google.apiUrl');
-    if (!apiUrl) throw new Error('Missing Google token url');
-
-    const clientId = this.config.get<string>('google.clientId');
-    if (!clientId) throw new Error('Missing Google client ID');
-
-    const redirectUri = this.config.get<string>('google.redirectUri');
-    if (!redirectUri) throw new Error('Missing Google redirect URI');
-
-    const clientSecret = this.config.get<string>('google.clientSecret');
-    if (!clientSecret) throw new Error('Missing Google client secret');
+    const apiUrl = this.config.get('google.apiUrl') as string;
+    const clientId = this.config.get('google.clientId') as string;
+    const redirectUri = this.config.get('google.redirectUri') as string;
+    const clientSecret = this.config.get('google.clientSecret') as string;
 
     // Prepare form data
     const body = new URLSearchParams();
-
     body.append('code', code);
     body.append('client_id', clientId);
     body.append('redirect_uri', redirectUri);
@@ -43,6 +39,7 @@ export class AuthService {
     body.append('grant_type', 'authorization_code');
 
     try {
+      // Exchange code for token
       const { data: token }: { data: TokenResponse } = await axios.post(
         `${apiUrl}/token`,
         body.toString(),
@@ -57,6 +54,12 @@ export class AuthService {
       }: { data: GoogleUserInfoResponse } = await axios.get(
         `${apiUrl}/tokeninfo?id_token=${token.id_token}`,
       );
+
+      if (!email_verified) {
+        throw new UnauthorizedException('Google email not verified');
+      }
+
+      // Get user info
       const { user, isNewUser } = await this.userService.findOrCreateGoogleUser(
         {
           sub,
@@ -66,9 +69,13 @@ export class AuthService {
           email_verified,
         },
       );
+      return { user, isNewUser };
     } catch (error) {
-      console.error(error);
-      throw new BadRequestException('Invalid Google Id Token');
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        throw new UnauthorizedException('Invalid Google code');
+      }
+      console.error('Service Google callback error:', error);
+      throw new InternalServerErrorException('Failed to process Google login');
     }
   }
 }

@@ -1,6 +1,6 @@
-import { Model } from 'mongoose';
+import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
@@ -8,26 +8,26 @@ export class UserService {
   private readonly logger = new Logger(UserService.name);
 
   constructor(
-    @InjectModel(User.name)
-    private readonly userModel: Model<User>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   /**
    * Find user by Google ID (sub)
    */
   async findByGoogleId(googleId: string): Promise<User | null> {
-    return this.userModel.findOne({ google_id: googleId }).exec();
+    return this.userRepo.findOne({ where: { google_id: googleId } });
   }
 
   /**
    * Find user by email
    */
   async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+    return this.userRepo.findOne({ where: { email } });
   }
 
   /**
-   * Create user from Google profile
+   * Create a new user from Google data
    */
   async createFromGoogle(profile: {
     google_id: string;
@@ -36,7 +36,7 @@ export class UserService {
     picture?: string;
     email_verified?: boolean;
   }): Promise<User> {
-    const newUser = new this.userModel({
+    const user = this.userRepo.create({
       google_id: profile.google_id,
       email: profile.email,
       name: profile.name,
@@ -45,15 +45,11 @@ export class UserService {
       last_login_at: new Date(),
     });
 
-    return newUser.save();
+    return this.userRepo.save(user);
   }
 
   /**
    * findOrCreateGoogleUser
-   * - Check Google ID
-   * - Check email (fallback)
-   * - Create if not exists
-   * - Update last_login_at
    */
   async findOrCreateGoogleUser(profile: {
     sub: string;
@@ -64,7 +60,7 @@ export class UserService {
   }): Promise<{ user: User; isNewUser: boolean }> {
     const google_id = profile.sub;
 
-    // Find user by google_id
+    // Find user by Google ID
     let user = await this.findByGoogleId(google_id);
 
     // Find user by email
@@ -74,7 +70,7 @@ export class UserService {
 
     let isNewUser = false;
 
-    // 3. Create new user if none exists
+    // create new user
     if (!user) {
       user = await this.createFromGoogle({
         google_id,
@@ -86,9 +82,9 @@ export class UserService {
       isNewUser = true;
     }
 
-    // 4. Update login timestamp
+    // 4. Update last login timestamp
     user.last_login_at = new Date();
-    await user.save();
+    await this.userRepo.save(user);
 
     return { user, isNewUser };
   }
