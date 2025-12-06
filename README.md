@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a backend API using **NestJS**, **MongoDB**, and **Mongoose** that supports:
+This project implements a backend API using **NestJS**, **PostgreSQL**, and **TypeORM** that supports:
 
 - User authentication via **Google Sign-In (OAuth 2.0)**
 - Payment processing via **Paystack**
@@ -18,7 +18,7 @@ This backend is **API-only** — no frontend/UI included.
 
 - Trigger OAuth flow (`GET /auth/google`)
 - Handle OAuth callback (`GET /auth/google/callback`)
-- Automatically create or update users in MongoDB
+- Automatically create or update users in PostgreSQL
 - JWT-based session support (optional)
 
 ### Paystack Payment
@@ -26,14 +26,14 @@ This backend is **API-only** — no frontend/UI included.
 - Initialize payments (`POST /payments/initiate`)
 - Verify payment status (`GET /payments/verify`)
 - Webhook endpoint for Paystack events (`POST /payments/webhook`)
-- Track transactions in MongoDB
+- Track transactions in PostgreSQL
 
 ---
 
 ## Technology Stack
 
 - **Backend:** NestJS
-- **Database:** MongoDB (Mongoose)
+- **Database:** PostgreSQL (TypeORM)
 - **Authentication:** Google OAuth 2.0, JWT (optional)
 - **Payment Gateway:** Paystack
 - **Environment Config:** dotenv
@@ -60,7 +60,10 @@ pnpm install
 > Create a .env file
 
 ```bash
-MONGO_URI=mongodb://localhost:27017/mydb
+DATABASE_URL=postgresql://username:password@host:port/database_name
+PAYSTACK_SECRET_KEY=your_paystack_secret_key
+PAYSTACK_PUBLIC_KEY=your_paystack_public_key
+PAYSTACK_BASE_URL=https://api.paystack.co
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
@@ -106,3 +109,4 @@ src/
 - Ensure your Google OAuth credentials and Paystack keys are correctly set in .env.
 
 - For production, use `HTTPS` and secure JWT handling.
+
