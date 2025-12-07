@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 
 @Entity('transactions')
-export class Transaction {
+export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -23,12 +23,12 @@ export class Transaction {
   @Column({ default: 'pending' })
   status: string;
 
-  @Column({ nullable: true })
-  paidAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  paid_at: Date | null;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 }

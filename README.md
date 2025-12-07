@@ -23,9 +23,9 @@ This backend is **API-only** — no frontend/UI included.
 
 ### Paystack Payment
 
-- Initialize payments (`POST /payments/initiate`)
-- Verify payment status (`GET /payments/verify`)
-- Webhook endpoint for Paystack events (`POST /payments/webhook`)
+- Initialize payments (`POST /payments/paystack/initiate`)
+- Verify payment status (`GET /payments/{reference}/status`)
+- Webhook endpoint for Paystack events (`POST /payments/paystack/webhook`)
 - Track transactions in PostgreSQL
 
 ---
@@ -94,10 +94,10 @@ src/
  │    ├── user.module.ts
  │    ├── user.service.ts
  │    └── user.schema.ts
- ├── payments/
- │    ├── payments.module.ts
- │    ├── payments.service.ts
- │    └── payments.controller.ts
+ ├── paystack/
+ │    ├── paystack.module.ts
+ │    ├── paystack.service.ts
+ │    └── paystack.controller.ts
  ├── app.module.ts
  └── main.ts
 ```
@@ -109,4 +109,3 @@ src/
 - Ensure your Google OAuth credentials and Paystack keys are correctly set in .env.
 
 - For production, use `HTTPS` and secure JWT handling.
-

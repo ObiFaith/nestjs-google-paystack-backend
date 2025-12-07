@@ -2,110 +2,120 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import axios from 'axios';
-import * as crypto from 'crypto';
-import { Repository, Transaction } from 'typeorm';
+import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Payment } from './entities/payment.entity';
+import { ConfigService } from '@nestjs/config';
+import { InitiatePaymentResponse, VerifyPaymentResponse } from 'src/interface';
 
 @Injectable()
-export class PaystackService {
-  private readonly paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-  private readonly webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
+export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
 
   constructor(
-    @InjectRepository(Transaction)
-    private readonly transactionRepo: Repository<Transaction>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
+    private readonly config: ConfigService,
   ) {}
 
-  /** Initiate a Paystack transaction */
-  async initiateTransaction(userEmail: string, amount: number) {
+  /** Initiate a Paystack payment */
+  async initiatePayment(userEmail: string, amount: number) {
     if (!amount || amount <= 0) {
       throw new BadRequestException('Invalid amount');
     }
 
+    const paystackApiUrl = this.config.get<string>('paystack.apiUrl') as string;
+    const paystackSecret = this.config.get<string>(
+      'paystack.secretKey',
+    ) as string;
+
     try {
-      const { data } = await axios.post(
-        'https://api.paystack.co/transaction/initialize',
+      const { data }: { data: InitiatePaymentResponse } = await axios.post(
+        `${paystackApiUrl}/initialize`,
         { email: userEmail, amount },
-        { headers: { Authorization: `Bearer ${this.paystackSecret}` } },
+        { headers: { Authorization: `Bearer ${paystackSecret}` } },
       );
 
-      console.log('paystack', data);
+      // Validate Paystack response
+      if (!data || !data.status) {
+        throw new HttpException(
+          'Payment initiation failed by Paystack',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
 
       const { reference, authorization_url } = data.data;
 
-      const transaction = this.transactionRepo.create({
-        reference,
-        email: userEmail,
-        amount,
-        status: 'pending',
-      });
-      await this.transactionRepo.save(transaction);
+      if (!reference || !authorization_url) {
+        throw new HttpException(
+          'Payment initiation incomplete',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+
+      await this.paymentRepo.save(
+        this.paymentRepo.create({
+          reference,
+          email: userEmail,
+          amount,
+          status: 'pending',
+        }),
+      );
 
       return { reference, authorization_url };
     } catch (error) {
-      throw new InternalServerErrorException('Payment initiation failed');
+      if (axios.isAxiosError(error) && error.response) {
+        throw new HttpException(
+          'Payment initiation failed',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+
+      console.error('Payment initiation error:', error);
+      throw new InternalServerErrorException('Internal server error');
     }
   }
 
-  /** Verify transaction from Paystack */
-  async verifyTransaction(reference: string) {
-    try {
-      const response = await axios.get(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        { headers: { Authorization: `Bearer ${this.paystackSecret}` } },
-      );
+  /** Verify payment from paystack */
+  async verifyPayment(reference: string) {
+    const paystackApiUrl = this.config.get<string>('paystack.apiUrl') as string;
+    const paystackSecret = this.config.get<string>(
+      'paystack.secretKey',
+    ) as string;
 
-      const data = response.data.data;
-      const transaction = await this.transactionRepo.findOne({
+    try {
+      const {
+        data: { data },
+      }: {
+        data: { data: VerifyPaymentResponse };
+      } = await axios.get(`${paystackApiUrl}/verify/${reference}`, {
+        headers: { Authorization: `Bearer ${paystackSecret}` },
+      });
+
+      const payment = await this.paymentRepo.findOne({
         where: { reference },
       });
-      if (transaction) {
-        transaction.status = data.status;
-        transaction.paidAt = new Date(data.paid_at);
-        await this.transactionRepo.save(transaction);
+
+      if (payment) {
+        payment.status = data.status;
+        payment.paid_at = data.paid_at;
+        await this.paymentRepo.save(payment);
       }
 
       return {
         reference: data.reference,
         status: data.status,
         amount: data.amount,
-        paidAt: data.paid_at,
+        paid_at: data.paid_at,
       };
     } catch (error) {
-      throw new InternalServerErrorException('Failed to verify transaction');
+      console.error('Payment verification error:', error);
+      throw new InternalServerErrorException('Failed to verify payment');
     }
-  }
-
-  /** Handle webhook events */
-  async handleWebhook(payload: any, signature: string) {
-    const hash = crypto
-      .createHmac('sha512', this.webhookSecret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-
-    if (hash !== signature) {
-      throw new BadRequestException('Invalid signature');
-    }
-
-    const event = payload.event;
-    const data = payload.data;
-
-    const transaction = await this.transactionRepo.findOne({
-      where: { reference: data.reference },
-    });
-    if (!transaction) return { status: true };
-
-    if (event === 'charge.success') transaction.status = 'success';
-    else if (event === 'charge.failed') transaction.status = 'failed';
-    else transaction.status = 'pending';
-
-    transaction.paidAt = data.paid_at
-      ? new Date(data.paid_at)
-      : transaction.paidAt;
-    await this.transactionRepo.save(transaction);
-
-    return { status: true };
   }
 }

@@ -2,44 +2,73 @@ import {
   Controller,
   Post,
   Body,
-  Headers,
-  Get,
-  Param,
-  Query,
   Req,
+  UseGuards,
+  HttpStatus,
+  HttpCode,
+  Param,
+  Get,
 } from '@nestjs/common';
-import { PaystackService } from './payment.service';
+import * as _interface from '../interface';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { PaymentService } from './payment.service';
+import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
+import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 
-@Controller('payments/paystack')
-export class PaystackController {
-  constructor(private readonly paystackService: PaystackService) {}
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('payments')
+export class PaymentController {
+  constructor(private readonly paymentService: PaymentService) {}
 
   /** Initiate payment */
-  @Post('initiate')
-  async initiate(@Body() body: { amount: number }, @Req() req) {
-    const userEmail = req.user.email;
-    const { amount } = body;
-    return this.paystackService.initiateTransaction(userEmail, amount);
-  }
-
-  /** Webhook endpoint */
-  @Post('webhook')
-  async webhook(
-    @Body() body: any,
-    @Headers('x-paystack-signature') signature: string,
+  @Post('paystack/initiate')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Initiate a Paystack payment transaction' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Transaction initialized successfully',
+  })
+  @ApiBody({
+    type: InitiatePaymentDto,
+    description: 'Transaction initialized successfully',
+  })
+  async initiate(
+    @Body() body: InitiatePaymentDto,
+    @Req() req: _interface.AuthenticatedRequest,
   ) {
-    return this.paystackService.handleWebhook(body, signature);
+    const data = await this.paymentService.initiatePayment(
+      req.user.email,
+      body.amount,
+    );
+
+    return {
+      status: HttpStatus.CREATED,
+      message: 'Payment initiated successfully!',
+      data,
+    };
   }
 
   /** Check transaction status */
-  @Get(':reference/status')
-  async status(
-    @Param('reference') reference: string,
-    @Query('refresh') refresh?: boolean,
-  ) {
-    if (refresh === 'true') {
-      return this.paystackService.verifyTransaction(reference);
-    }
-    return this.paystackService.verifyTransaction(reference);
+  @Get('paystack/:reference/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify a Paystack payment by reference' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment verified successfully',
+  })
+  async status(@Param('reference') reference: string) {
+    const data = await this.paymentService.verifyPayment(reference);
+
+    return {
+      status: HttpStatus.OK,
+      message: 'Payment verified successfully',
+      data,
+    };
   }
 }

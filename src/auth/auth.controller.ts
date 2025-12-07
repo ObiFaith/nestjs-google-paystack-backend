@@ -10,8 +10,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import express from 'express';
-import * as _interface from './interface';
+import * as _interface from '../interface';
 import { AuthService } from './auth.service';
+import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -19,9 +20,19 @@ export class AuthController {
 
   @Get('google')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Redirect to Google OAuth login page' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns Google OAuth URL when response_type=json',
+  })
+  @ApiQuery({
+    name: 'response_type',
+    required: false,
+    description: 'Response type for OAuth',
+  })
   googleSignIn(
-    @Query('response_type') responseType: string,
     @Res({ passthrough: true }) res: express.Response,
+    @Query('response_type') responseType?: string,
   ) {
     try {
       const googleAuthUrl = this.authService.googleOauth();
@@ -41,7 +52,11 @@ export class AuthController {
 
       // Response mode: JSON
       if (responseType === 'json') {
-        return { google_auth_url: googleAuthUrl };
+        return {
+          status: HttpStatus.OK,
+          message: 'Google OAuth URL generated successfully!',
+          google_auth_url: googleAuthUrl,
+        };
       }
 
       // Default: redirect
@@ -59,16 +74,28 @@ export class AuthController {
 
   @Get('google/callback')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Handle Google OAuth callback' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Handles Google OAuth callback and returns user info + JWT',
+  })
   async googleCallback(@Query() query: _interface.CallbackQuery) {
     if (!query.code) {
       throw new BadRequestException('Missing code');
     }
 
     try {
-      const { user, isNewUser } = await this.authService.googleCallback(
-        query.code,
-      );
-      return { message: 'User created sucessfully!', ...user, isNewUser };
+      const {
+        user,
+        isNewUser: is_new_user,
+        access_token,
+      } = await this.authService.googleCallback(query.code);
+
+      return {
+        status: HttpStatus.OK,
+        message: 'User created sucessfully!',
+        data: { ...user, is_new_user, access_token },
+      };
     } catch (error) {
       console.error('Google Callback error:', error);
 

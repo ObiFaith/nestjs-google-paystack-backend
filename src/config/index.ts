@@ -1,4 +1,9 @@
 export default () => ({
+  jwtSecret: process.env.JWT_SECRET ?? '',
+  paystack: {
+    apiUrl: process.env.PAYSTACK_API_URL ?? '',
+    secretKey: process.env.PAYSTACK_SECRET_KEY ?? '',
+  },
   google: {
     apiUrl: process.env.GOOGLE_API_URL ?? '',
     oauthUrl: process.env.GOOGLE_OAUTH_URL ?? '',

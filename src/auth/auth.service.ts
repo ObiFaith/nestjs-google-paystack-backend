@@ -2,16 +2,21 @@ import axios from 'axios';
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { GoogleUserInfoResponse, TokenResponse } from './interface';
 import { UserService } from 'src/user/user.service';
+import { GoogleUserInfoResponse, TokenResponse } from '../interface';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private config: ConfigService,
+    private readonly jwtService: JwtService,
     private readonly userService: UserService,
   ) {}
 
@@ -69,7 +74,14 @@ export class AuthService {
           email_verified,
         },
       );
-      return { user, isNewUser };
+
+      // Create JWT
+      const access_token = this.jwtService.sign({
+        userId: user.id,
+        email: user.email,
+      });
+
+      return { user, isNewUser, access_token };
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         throw new UnauthorizedException('Invalid Google code');

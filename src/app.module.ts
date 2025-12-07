@@ -1,13 +1,11 @@
 import config from './config';
 import { Module } from '@nestjs/common';
-import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { AppController } from './app.controller';
 import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DatabaseModule } from './database/database.module';
 import { PaymentModule } from './payment/payment.module';
+import { DatabaseModule } from './database/database.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -35,7 +33,5 @@ import { PaymentModule } from './payment/payment.module';
     DatabaseModule,
     PaymentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
