@@ -2,6 +2,10 @@ export default () => ({
   app: {
     host: process.env.HOST ?? '0.0.0.0',
     port: process.env.PORT ?? 3000,
+    env: process.env.NODE_ENV ?? 'development',
+  },
+  db: {
+    url: process.env.DATABASE_URL ?? '',
   },
   jwtSecret: process.env.JWT_SECRET ?? '',
   paystack: {
