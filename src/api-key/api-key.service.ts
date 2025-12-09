@@ -3,8 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { UserReq } from 'src/interface';
 import { MoreThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CreateApiKeyDto } from './dto/create-api-key.dto';
-import { UpdateApiKeyDto } from './dto/update-api-key.dto';
+import { CreateApiKeyDto, RolloverApiKeyDto } from './dto';
 import { ApiKey, Permission } from './entities/api-key.entity';
 import { Injectable, BadRequestException } from '@nestjs/common';
 
@@ -112,19 +111,7 @@ export class ApiKeyService {
     return date;
   }
 
-  findAll() {
+  async rollover(dto: RolloverApiKeyDto) {
     return `This action returns all apiKey`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} apiKey`;
-  }
-
-  update(id: number, updateApiKeyDto: UpdateApiKeyDto) {
-    return `This action updates a #${id} apiKey`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} apiKey`;
   }
 }
