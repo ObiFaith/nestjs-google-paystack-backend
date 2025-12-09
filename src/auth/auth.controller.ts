@@ -8,15 +8,62 @@ import {
   BadRequestException,
   InternalServerErrorException,
   UnauthorizedException,
+  Body,
+  Post,
 } from '@nestjs/common';
 import express from 'express';
+import { LoginDto, SignupDto } from './dto';
 import * as _interface from '../interface';
 import { AuthService } from './auth.service';
-import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new user account' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Successfully created a new user account',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Unable to register with provided credentials',
+  })
+  @ApiBody({ type: SignupDto })
+  async signup(@Body() dto: SignupDto) {
+    const data = await this.authService.signup(dto);
+
+    return {
+      status: HttpStatus.CREATED,
+      message: 'User created sucessfully!',
+      data,
+    };
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully logged in, returns JWT token and user info',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Invalid credentials',
+  })
+  @ApiBody({ type: LoginDto })
+  async login(@Body() dto: LoginDto) {
+    const data = await this.authService.login(dto);
+
+    return {
+      status: HttpStatus.OK,
+      message: 'Login sucessful!',
+      data,
+    };
+  }
 
   @Get('google')
   @HttpCode(HttpStatus.OK)
@@ -85,16 +132,12 @@ export class AuthController {
     }
 
     try {
-      const {
-        user,
-        isNewUser: is_new_user,
-        access_token,
-      } = await this.authService.googleCallback(query.code);
+      const data = await this.authService.googleCallback(query.code);
 
       return {
         status: HttpStatus.OK,
         message: 'User created sucessfully!',
-        data: { ...user, is_new_user, access_token },
+        data,
       };
     } catch (error) {
       console.error('Google Callback error:', error);

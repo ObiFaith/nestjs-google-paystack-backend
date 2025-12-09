@@ -1,14 +1,22 @@
 import axios from 'axios';
 import {
-  Injectable,
-  InternalServerErrorException,
+  UserReq,
+  UserResponse,
+  TokenResponse,
+  GoogleUserInfoResponse,
+} from '../interface';
+import {
   Logger,
+  Injectable,
+  BadRequestException,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto, SignupDto } from './dto';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
-import { GoogleUserInfoResponse, TokenResponse } from '../interface';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +27,47 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
   ) {}
+
+  async generateJwtToken(user: UserReq) {
+    return this.jwtService.sign({
+      id: user.id,
+      email: user.email,
+    });
+  }
+
+  async signup(dto: SignupDto) {
+    const existingUser = await this.userService.findByEmail(dto.email);
+    if (existingUser) {
+      throw new BadRequestException(
+        'Unable to register with provided credentials',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.userService.createUser({
+      email: dto.email,
+      name: dto.name,
+      password: hashedPassword,
+    });
+
+    const accessToken = await this.generateJwtToken(user);
+    return await this.mapUserResponse(user, accessToken);
+  }
+
+  async login(dto: LoginDto) {
+    const user = await this.userService.findByEmail(dto.email);
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const accessToken = await this.generateJwtToken(user);
+    return await this.mapUserResponse(user, accessToken);
+  }
 
   googleOauth() {
     const scope = encodeURIComponent('openid email profile');
@@ -65,23 +114,17 @@ export class AuthService {
       }
 
       // Get user info
-      const { user, isNewUser } = await this.userService.findOrCreateGoogleUser(
-        {
-          sub,
-          email,
-          name,
-          picture,
-          email_verified,
-        },
-      );
-
-      // Create JWT
-      const access_token = this.jwtService.sign({
-        id: user.id,
-        email: user.email,
+      const { user } = await this.userService.findOrCreateGoogleUser({
+        sub,
+        email,
+        name,
+        picture,
+        email_verified,
       });
 
-      return { user, isNewUser, access_token };
+      // Create JWT
+      const accessToken = await this.generateJwtToken(user);
+      return await this.mapUserResponse(user, accessToken);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         throw new UnauthorizedException('Invalid Google code');
@@ -89,5 +132,17 @@ export class AuthService {
       console.error('Service Google callback error:', error);
       throw new InternalServerErrorException('Failed to process Google login');
     }
+  }
+
+  async mapUserResponse(user: Partial<UserResponse>, accessToken: string) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture ?? null,
+      google_id: user.google_id ?? null,
+      email_verified: user.email_verified ?? false,
+      access_token: accessToken,
+    };
   }
 }

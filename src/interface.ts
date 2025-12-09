@@ -21,13 +21,23 @@ export interface GoogleUserInfoResponse {
   picture: string;
 }
 
-export interface User {
+export interface UserReq {
   id: string;
   email: string;
 }
 
+export interface UserResponse {
+  id: string;
+  email: string;
+  name: string;
+  google_id: string | null;
+  picture: string | null;
+  email_verified: boolean;
+  access_token: string;
+}
+
 export interface AuthRequest extends Request {
-  user: User;
+  user: UserReq;
 }
 
 export interface InitiatePaymentResponse {

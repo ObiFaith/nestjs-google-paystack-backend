@@ -4,6 +4,7 @@ import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthController } from './auth.controller';
 import { UserModule } from 'src/user/user.module';
 import { JwtConfigModule } from './jwt/jwt.module';
+import { User } from 'src/user/entities/user.entity';
 
 @Module({
   imports: [UserModule, JwtConfigModule],

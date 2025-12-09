@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable, Logger } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UserService {
@@ -27,25 +28,20 @@ export class UserService {
   }
 
   /**
-   * Create a new user from Google data
+   * Create a new user
    */
-  async createFromGoogle(profile: {
-    google_id: string;
-    email: string;
-    name: string;
-    picture?: string;
-    email_verified?: boolean;
-  }): Promise<User> {
+  async createUser(dto: CreateUserDto): Promise<User> {
     const user = this.userRepo.create({
-      google_id: profile.google_id,
-      email: profile.email,
-      name: profile.name,
-      picture: profile.picture ?? null,
-      email_verified: profile.email_verified ?? false,
+      email: dto.email,
+      name: dto.name,
+      password: dto.password ?? null,
+      google_id: dto.google_id ?? null,
+      picture: dto.picture ?? null,
+      email_verified: dto.email_verified ?? false,
       last_login_at: new Date(),
     });
 
-    return this.userRepo.save(user);
+    return await this.userRepo.save(user);
   }
 
   /**
@@ -58,33 +54,28 @@ export class UserService {
     picture?: string;
     email_verified?: boolean;
   }): Promise<{ user: User; isNewUser: boolean }> {
-    const google_id = profile.sub;
-
-    // Find user by Google ID
-    let user = await this.findByGoogleId(google_id);
-
-    // Find user by email
-    if (!user) {
-      user = await this.findByEmail(profile.email);
-    }
+    // Find user by Google ID or email
+    let user =
+      (await this.findByGoogleId(profile.sub)) ||
+      (await this.findByEmail(profile.email));
 
     let isNewUser = false;
 
     // create new user
     if (!user) {
-      user = await this.createFromGoogle({
-        google_id,
+      user = await this.createUser({
+        google_id: profile.sub,
         email: profile.email,
         name: profile.name,
         picture: profile.picture,
         email_verified: profile.email_verified,
       });
       isNewUser = true;
+    } else {
+      // update last login timestamp
+      user.last_login_at = new Date();
+      await this.userRepo.save(user);
     }
-
-    // 4. Update last login timestamp
-    user.last_login_at = new Date();
-    await this.userRepo.save(user);
 
     return { user, isNewUser };
   }

@@ -1,13 +1,12 @@
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { UserReq } from 'src/interface';
 import { MoreThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ApiKey, Permission } from './entities/api-key.entity';
-import { User } from 'src/user/entities/user.entity';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
+import { ApiKey, Permission } from './entities/api-key.entity';
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { User as UserReq } from 'src/interface';
 
 @Injectable()
 export class ApiKeyService {
