@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ApiKeyModule } from './api-key/api-key.module';
 import { PaymentModule } from './payment/payment.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -21,17 +22,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         url: config.get<string>('db.url'),
         autoLoadEntities: true,
         synchronize: true,
-        extra: {
+       /*  extra: {
           ssl: {
             rejectUnauthorized: false,
           },
-        },
+        }, */
       }),
     }),
     AuthModule,
     UserModule,
     DatabaseModule,
     PaymentModule,
+    ApiKeyModule,
   ],
 })
 export class AppModule {}

@@ -1,8 +1,7 @@
 export default () => ({
   app: {
     host: process.env.HOST ?? '0.0.0.0',
-    port: process.env.PORT ?? 3000,
-    env: process.env.NODE_ENV ?? 'development',
+    port: process.env.PORT ?? 3000
   },
   db: {
     url: process.env.DATABASE_URL ?? '',

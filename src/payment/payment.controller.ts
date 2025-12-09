@@ -40,7 +40,7 @@ export class PaymentController {
   })
   async initiate(
     @Body() body: InitiatePaymentDto,
-    @Req() req: _interface.AuthenticatedRequest,
+    @Req() req: _interface.AuthRequest,
   ) {
     const data = await this.paymentService.initiatePayment(
       req.user.email,

@@ -21,8 +21,13 @@ export interface GoogleUserInfoResponse {
   picture: string;
 }
 
-export interface AuthenticatedRequest extends Request {
-  user: { userId: string; email: string };
+export interface User {
+  id: string;
+  email: string;
+}
+
+export interface AuthRequest extends Request {
+  user: User;
 }
 
 export interface InitiatePaymentResponse {
