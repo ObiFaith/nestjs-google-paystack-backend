@@ -13,9 +13,10 @@ import { ApiKeyService } from './api-key.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import * as _interface from 'src/interface';
 
+@ApiTags('Keys')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('keys')

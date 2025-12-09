@@ -15,8 +15,9 @@ import express from 'express';
 import { LoginDto, SignupDto } from './dto';
 import * as _interface from '../interface';
 import { AuthService } from './auth.service';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

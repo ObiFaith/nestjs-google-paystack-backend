@@ -13,7 +13,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
   google_id: string | null;
 
   @Column({ unique: true })
@@ -28,7 +28,7 @@ export class User {
   @Column({ default: false })
   email_verified: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   password: string | null;
 
   @OneToMany(() => ApiKey, (apiKey) => apiKey.user, { cascade: true })
