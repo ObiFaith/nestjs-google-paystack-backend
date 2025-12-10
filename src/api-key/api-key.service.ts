@@ -145,7 +145,7 @@ export class ApiKeyService {
   }> {
     const rawKey = 'sk_live_' + crypto.randomBytes(32).toString('hex');
     const hashedKey = await bcrypt.hash(rawKey, 10);
-    const keyId = rawKey.slice(0, 8);
+    const keyId = crypto.randomBytes(16).toString('hex');
     return { rawKey, hashedKey, keyId };
   }
 
@@ -187,7 +187,7 @@ export class ApiKeyService {
     rawKey: string,
     requiredPermission?: Permission,
   ): Promise<ApiKey> {
-    const keyId = rawKey.slice(0, 8);
+    const keyId = rawKey.slice(-32);
     const key = await this.apiKeyRepository.findOne({
       where: { keyId, revoked: false },
     });
