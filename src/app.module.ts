@@ -8,6 +8,7 @@ import { PaymentModule } from './payment/payment.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WalletModule } from './wallet/wallet.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -37,5 +38,6 @@ import { WalletModule } from './wallet/wallet.module';
     ApiKeyModule,
     WalletModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

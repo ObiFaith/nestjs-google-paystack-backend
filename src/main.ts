@@ -7,8 +7,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = new DocumentBuilder()
-    .setTitle('Google OAuth & Paystack Integration')
-    .setDescription('API Documentation for Google OAuth & Paystack Integration')
+    .setTitle('Wallet Service with Paystack, JWT & API Keys')
+    .setDescription('API Documentation for Wallet Service with Paystack, JWT & API Keys')
     .setVersion('1.0')
     .addBearerAuth({
       type: 'http',
