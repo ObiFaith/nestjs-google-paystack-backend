@@ -26,6 +26,21 @@ export interface UserReq {
   email: string;
 }
 
+export interface PayloadData {
+  amount: number;
+  reference: string;
+}
+
+export interface Payload {
+  event: string;
+  data: PayloadData;
+}
+
+export interface Wallet {
+  wallet_number: string;
+  balance: number;
+}
+
 export interface UserResponse {
   id: string;
   email: string;
@@ -34,6 +49,8 @@ export interface UserResponse {
   picture: string | null;
   email_verified: boolean;
   access_token: string;
+  wallet_number: string;
+  balance: number;
 }
 
 export interface AuthRequest extends Request {

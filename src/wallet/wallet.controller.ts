@@ -8,7 +8,10 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import {
   WalletStatusSwagger,
   WalletBalanceSwagger,
@@ -17,7 +20,7 @@ import {
   WalletTransferSwagger,
   WalletTransactionsSwagger,
 } from './doc/wallet.swagger';
-import { DepositDto } from './dto';
+import { DepositDto, TransferDto } from './dto';
 import * as _interface from '../interface';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
@@ -44,37 +47,38 @@ export class WalletController {
     };
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMyWallet(@Req() req: _interface.AuthRequest) {
+    const wallet = await this.walletService.getUserWallet(req.user.id);
+
+    return {
+      balance: wallet.balance,
+      wallet_number: wallet.wallet_number,
+      created_at: wallet.created_at,
+    };
+  }
+
   @Post('paystack/webhook')
   @HttpCode(HttpStatus.OK)
   @WalletWebhookSwagger()
-  async webhook(@Req() req) {
-    try {
-      // Capture raw body
-      const body = req.rawBody
-        ? req.rawBody.toString()
-        : JSON.stringify(req.body);
-      console.log('Webhook received: body =', body);
-
-      // Capture headers
-      const signature = req.headers['x-paystack-signature'] as string;
-      console.log('Webhook received: x-paystack-signature =', signature);
-
-      const data = await this.walletService.handleWebhook(body, signature);
-
-      console.log(
-        'Webhook processed successfully for reference:',
-        data?.reference ?? 'N/A',
-      );
-
-      return {
-        status: HttpStatus.OK,
-        message: 'Webhook processed',
-        data,
-      };
-    } catch (error) {
-      console.error('Webhook error:', error);
-      return { status: false, message: 'Webhook failed' };
+  async paystackWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-paystack-signature') signature: string,
+  ) {
+    if (!signature) {
+      throw new BadRequestException('Missing signature');
     }
+
+    const rawBody = req.rawBody;
+
+    if (!rawBody) {
+      throw new BadRequestException('Missing raw body');
+    }
+
+    await this.walletService.handlePaystackWebhook(rawBody, signature);
+
+    return { status: true };
   }
 
   @Get('deposit/:reference/status')
@@ -111,12 +115,12 @@ export class WalletController {
   @UseGuards(JwtAuthGuard, ApiKeyGuardFactory(Permission.TRANSFER))
   async transfer(
     @Req() req: _interface.AuthRequest,
-    @Body() body: { wallet_number: string; amount: number },
+    @Body() transferDto: TransferDto,
   ) {
     const data = await this.walletService.transfer(
       req.user,
-      body.wallet_number,
-      body.amount,
+      transferDto.wallet_number,
+      transferDto.amount,
     );
 
     return {

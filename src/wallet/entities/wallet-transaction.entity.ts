@@ -18,7 +18,7 @@ export class WalletTransaction {
   @Column()
   type: 'deposit' | 'transfer';
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
   @Column()
@@ -28,5 +28,5 @@ export class WalletTransaction {
   status: 'success' | 'failed' | 'pending';
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 }

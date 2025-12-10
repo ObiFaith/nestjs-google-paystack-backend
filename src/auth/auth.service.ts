@@ -4,6 +4,7 @@ import {
   UserResponse,
   TokenResponse,
   GoogleUserInfoResponse,
+  Wallet,
 } from '../interface';
 import {
   Logger,
@@ -53,9 +54,8 @@ export class AuthService {
     });
 
     const accessToken = this.generateJwtToken(user);
-
-    await this.walletService.getOrCreateWallet(user);
-    return this.mapUserResponse(user, accessToken);
+    const wallet = await this.walletService.createUserWallet(user);
+    return this.mapUserResponse(user, accessToken, wallet);
   }
 
   async login(dto: LoginDto) {
@@ -70,7 +70,8 @@ export class AuthService {
     }
 
     const accessToken = this.generateJwtToken(user);
-    return this.mapUserResponse(user, accessToken);
+    const wallet = await this.walletService.createUserWallet(user);
+    return this.mapUserResponse(user, accessToken, wallet);
   }
 
   googleOauth() {
@@ -127,9 +128,8 @@ export class AuthService {
       });
       // Create JWT
       const accessToken = this.generateJwtToken(user);
-
-      await this.walletService.getOrCreateWallet(user);
-      return this.mapUserResponse(user, accessToken);
+      const wallet = await this.walletService.createUserWallet(user);
+      return this.mapUserResponse(user, accessToken, wallet);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         throw new UnauthorizedException('Invalid Google code');
@@ -139,7 +139,11 @@ export class AuthService {
     }
   }
 
-  mapUserResponse(user: Partial<UserResponse>, accessToken: string) {
+  mapUserResponse(
+    user: Partial<UserResponse>,
+    accessToken: string,
+    wallet: Wallet,
+  ) {
     return {
       id: user.id,
       email: user.email,
@@ -148,6 +152,8 @@ export class AuthService {
       google_id: user.google_id ?? null,
       email_verified: user.email_verified ?? false,
       access_token: accessToken,
+      wallet_number: wallet.wallet_number,
+      balance: wallet.balance,
     };
   }
 }

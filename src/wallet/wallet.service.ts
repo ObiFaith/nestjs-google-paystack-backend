@@ -7,12 +7,14 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { Repository } from 'typeorm';
-import { UserReq } from '../interface';
+import { Payload, PayloadData, UserReq } from '../interface';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../user/entities/user.entity';
 import { Wallet, WalletTransaction } from './entities';
 import { PaymentService } from '../payment/payment.service';
+import { Payment } from 'src/payment/entities/payment.entity';
+import { WalletNumberHelper } from './helpers/wallet-number.helper';
 
 @Injectable()
 export class WalletService {
@@ -21,28 +23,42 @@ export class WalletService {
     @InjectRepository(Wallet)
     private walletRepo: Repository<Wallet>,
 
+    @InjectRepository(Payment)
+    private paymentRepo: Repository<Payment>,
+
     @InjectRepository(WalletTransaction)
-    private txRepo: Repository<WalletTransaction>,
+    private walletTxRepo: Repository<WalletTransaction>,
 
     private paymentService: PaymentService,
     private readonly config: ConfigService,
   ) {}
 
+  private async generateUniqueWalletNumber(): Promise<string> {
+    while (true) {
+      const wallet_number = WalletNumberHelper.generate();
+
+      const exists = await this.walletRepo.findOne({
+        where: { wallet_number },
+      });
+
+      if (!exists) return wallet_number;
+    }
+  }
+
   /**
-   * Get or create user wallet
+   * Create user wallet
    * @param user - User entity
    */
-  async getOrCreateWallet(user: User) {
-    let wallet = await this.walletRepo.findOne({
-      where: { user: { id: user.id } },
+  async createUserWallet(user: User) {
+    const wallet_number = await this.generateUniqueWalletNumber();
+    const wallet = this.walletRepo.create({
+      balance: 0,
+      user,
+      wallet_number,
     });
 
-    if (!wallet) {
-      wallet = this.walletRepo.create({ user, balance: 0 });
-      wallet = await this.walletRepo.save(wallet);
-    }
-
-    return wallet;
+    await this.walletRepo.save(wallet);
+    return { wallet_number, balance: 0 };
   }
 
   /** Wallet Deposit
@@ -50,82 +66,95 @@ export class WalletService {
    * @param amount - Amount to deposit
    */
   async deposit(user: UserReq, amount: number) {
-    if (!amount || amount < 100)
-      throw new BadRequestException('Amount invalid');
-
     const wallet = await this.getUserWallet(user.id);
     const init = await this.paymentService.initiatePayment(user.email, amount);
 
     // Save pending transaction
-    const tx = this.txRepo.create({
-      wallet,
-      amount,
-      reference: init.reference,
-      type: 'deposit',
-      status: 'pending',
-    });
+    await this.walletTxRepo.save(
+      this.walletTxRepo.create({
+        wallet,
+        amount,
+        reference: init.reference,
+        type: 'deposit',
+        status: 'pending',
+      }),
+    );
 
-    await this.txRepo.save(tx);
-
-    return init;
+    return { ...init, amount };
   }
 
   /** Paystack Webhook */
-  async handleWebhook(rawPayload: string, signature: string) {
-    console.log('handleWebhook called');
-
-    if (!(await this.verifySignature(rawPayload, signature))) {
-      console.warn('Invalid signature detected');
+  async handlePaystackWebhook(rawBody: Buffer, signature: string) {
+    if (!this.verifyPaystackSignature(rawBody, signature))
       throw new ForbiddenException('Invalid signature');
-    }
 
-    const { data } = JSON.parse(rawPayload);
+    const payload = JSON.parse(rawBody.toString('utf8')) as Payload;
+    const { event, data } = payload;
+
+    if (event !== 'charge.success') {
+      this.logger.log(`Ignoring event: ${event}`);
+      return { status: true };
+    }
+    //Process the payment
+    await this.processSuccessfulCharge(data);
+  }
+
+  private async processSuccessfulCharge(data: PayloadData) {
     const reference = data.reference;
-    console.log('Webhook event reference:', reference, 'status:', data.status);
+    const amount = data.amount / 100; // kobo to Naira
 
-    const tx = await this.txRepo.findOne({
-      where: { reference },
-      relations: ['wallet'],
-    });
+    await this.walletRepo.manager.transaction(async (manager) => {
+      // Update Payment record (what Paystack says)
+      const payment = await manager.findOne(Payment, {
+        where: { reference },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!tx) {
-      this.logger.warn(`Transaction not found for reference: ${reference}`);
-      return { status: true };
-    }
-
-    if (tx.status === 'success') {
-      console.log(`Transaction ${reference} already processed`);
-      return { status: true };
-    }
-
-    try {
-      if (data.status === 'success') {
-        const amount = data.amount / 100; // convert kobo → Naira
-        console.log(`Crediting wallet for tx ${reference}, amount: ${amount}`);
-
-        tx.wallet.balance += amount;
-        tx.status = 'success';
-
-        await this.walletRepo.save(tx.wallet);
-        await this.txRepo.save(tx);
-
-        console.log(`Wallet credited successfully for tx ${reference}`);
-      } else if (data.status === 'failed') {
-        console.log(`Marking transaction ${reference} as failed`);
-        tx.status = 'failed';
-        await this.txRepo.save(tx);
+      if (!payment) {
+        this.logger.warn(`Payment not found: ${reference}`);
+        return;
       }
 
-      return { status: true, reference };
-    } catch (err) {
-      console.error(`Error processing transaction ${reference}:`, err);
-      throw err;
-    }
+      if (payment.status === 'success') {
+        this.logger.log(`Payment already processed: ${reference}`);
+        return;
+      }
+
+      payment.status = 'success';
+      payment.paid_at = new Date();
+      await manager.save(Payment, payment);
+
+      // Update WalletTransaction record (how wallet was affected)
+      const walletTx = await manager.findOne(WalletTransaction, {
+        where: { reference },
+        relations: ['wallet'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!walletTx) {
+        this.logger.warn(`WalletTransaction not found: ${reference}`);
+        return;
+      }
+
+      if (walletTx.status === 'success') {
+        this.logger.log(`Wallet already credited: ${reference}`);
+        return;
+      }
+
+      // Update wallet balance
+      walletTx.wallet.balance += amount;
+      walletTx.status = 'success';
+
+      await manager.save(Wallet, walletTx.wallet);
+      await manager.save(WalletTransaction, walletTx);
+
+      this.logger.log(`✅ Payment: ${reference} | Credited: ₦${amount}`);
+    });
   }
 
   /** Manual Status Check */
   async checkStatus(reference: string) {
-    const tx = await this.txRepo.findOne({ where: { reference } });
+    const tx = await this.walletTxRepo.findOne({ where: { reference } });
 
     if (!tx) throw new NotFoundException('Transaction not found');
 
@@ -157,69 +186,114 @@ export class WalletService {
   }
 
   /** Wallet Transfer */
-  async transfer(user: UserReq, walletNumber: string, amount: number) {
-    if (amount <= 0) throw new BadRequestException('Invalid amount');
+  async transfer(sender: UserReq, wallet_number: string, amount: number) {
+    if (!amount || amount <= 0) {
+      throw new BadRequestException('Invalid amount');
+    }
 
-    const sender = await this.walletRepo.findOne({
-      where: { user: { id: user.id } },
-    });
+    if (!WalletNumberHelper.isValid(wallet_number)) {
+      throw new BadRequestException('Invalid wallet number format');
+    }
 
-    if (!sender) throw new NotFoundException('Sender not found');
+    return await this.walletRepo.manager.transaction(async (manager) => {
+      // 1. Get sender's wallet with user info
+      const senderWallet = await manager.findOne(Wallet, {
+        where: { userId: sender.id },
+        relations: ['user'],
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    const receiver = await this.walletRepo.findOne({
-      where: { id: walletNumber },
-    });
+      if (!senderWallet) {
+        throw new NotFoundException('Sender wallet not found');
+      }
 
-    if (!receiver) throw new NotFoundException('Receiver not found');
-    if (sender.balance < amount)
-      throw new BadRequestException('Insufficient balance');
+      // 2. Get receiver's wallet by wallet number with user info
+      const receiverWallet = await manager.findOne(Wallet, {
+        where: { wallet_number },
+        relations: ['user'], // ⭐ Now you know who owns this wallet
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    sender.balance -= amount;
-    receiver.balance += amount;
+      if (!receiverWallet) {
+        throw new NotFoundException('Receiver wallet not found');
+      }
 
-    await this.walletRepo.save([sender, receiver]);
+      // 3. Prevent self-transfer
+      if (senderWallet.id === receiverWallet.id) {
+        throw new BadRequestException('Cannot transfer to yourself');
+      }
 
-    await this.txRepo.save([
-      this.txRepo.create({
-        wallet: sender,
+      // 4. Check balance
+      if (senderWallet.balance < amount) {
+        throw new BadRequestException('Insufficient balance');
+      }
+
+      // 5. Generate reference
+      const reference = `TRF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // 6. Deduct from sender
+      senderWallet.balance -= amount;
+      const debitTx = this.walletTxRepo.create({
+        wallet: senderWallet,
+        amount: -amount,
+        reference,
         type: 'transfer',
-        amount,
         status: 'success',
-        reference: 'tx-' + Date.now(),
-      }),
-      this.txRepo.create({
-        wallet: receiver,
-        type: 'deposit',
-        amount,
-        status: 'success',
-        reference: 'tx-' + Date.now(),
-      }),
-    ]);
+      });
 
-    return {
-      status: 'success',
-      message: 'Transfer completed',
-    };
+      // 7. Credit receiver
+      receiverWallet.balance += amount;
+      const creditTx = this.walletTxRepo.create({
+        wallet: receiverWallet,
+        amount,
+        reference,
+        type: 'transfer',
+        status: 'success',
+      });
+
+      // 8. Save all
+      await manager.save(Wallet, [senderWallet, receiverWallet]);
+      await manager.save(WalletTransaction, [debitTx, creditTx]);
+
+      this.logger.log(
+        `✅ Transfer: ${senderWallet.user.name} → ${receiverWallet.user.name} | ₦${amount}`,
+      );
+
+      return {
+        status: 'success',
+        message: 'Transfer completed',
+        reference,
+        amount,
+        recipient: {
+          wallet_number: receiverWallet.wallet_number,
+          name: receiverWallet.user.name, // ⭐ Now you can return recipient name
+        },
+      };
+    });
   }
 
   /** History
    * @param user - User entity
    */
   async history(user: UserReq) {
-    return this.txRepo.find({
+    return this.walletTxRepo.find({
       where: { wallet: { user: { id: user.id } } },
     });
   }
 
-  private async verifySignature(payload: string, signature: string) {
-    const paystackSecret = this.config.get('paystack.secretKey') as string;
+  private verifyPaystackSignature(rawBody: Buffer, signature: string): boolean {
+    const secret = this.config.get<string>('paystack.secretKey');
+
+    if (!secret) {
+      this.logger.error('Paystack secret key not configured');
+      return false;
+    }
+
     const hash = crypto
-      .createHmac('sha512', paystackSecret)
-      .update(payload)
+      .createHmac('sha512', secret)
+      .update(rawBody)
       .digest('hex');
 
-    const valid = hash === signature;
-    console.log('Signature verification:', valid ? 'passed' : 'failed');
-    return valid;
+    return hash === signature;
   }
 }
