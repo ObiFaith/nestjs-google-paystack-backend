@@ -72,12 +72,16 @@ export class WalletService {
 
   /** Paystack Webhook */
   async handleWebhook(rawPayload: string, signature: string) {
-    if (!this.verifySignature(rawPayload, signature)) {
+    console.log('handleWebhook called');
+
+    if (!(await this.verifySignature(rawPayload, signature))) {
+      console.warn('Invalid signature detected');
       throw new ForbiddenException('Invalid signature');
     }
 
     const { data } = JSON.parse(rawPayload);
     const reference = data.reference;
+    console.log('Webhook event reference:', reference, 'status:', data.status);
 
     const tx = await this.txRepo.findOne({
       where: { reference },
@@ -90,13 +94,14 @@ export class WalletService {
     }
 
     if (tx.status === 'success') {
+      console.log(`Transaction ${reference} already processed`);
       return { status: true };
     }
 
     try {
       if (data.status === 'success') {
-        // Convert amount from kobo to Naira (if NGN)
-        const amount = data.amount / 100;
+        const amount = data.amount / 100; // convert kobo → Naira
+        console.log(`Crediting wallet for tx ${reference}, amount: ${amount}`);
 
         tx.wallet.balance += amount;
         tx.status = 'success';
@@ -104,21 +109,17 @@ export class WalletService {
         await this.walletRepo.save(tx.wallet);
         await this.txRepo.save(tx);
 
-        this.logger.log(
-          `Wallet credited for tx: ${reference}, amount: ${amount}`,
-        );
+        console.log(`Wallet credited successfully for tx ${reference}`);
       } else if (data.status === 'failed') {
+        console.log(`Marking transaction ${reference} as failed`);
         tx.status = 'failed';
         await this.txRepo.save(tx);
-        this.logger.log(`Transaction failed for reference: ${reference}`);
       }
 
-      return { status: true };
+      return { status: true, reference };
     } catch (err) {
-      this.logger.error(
-        `Error processing transaction ${reference}: ${err.message}`,
-      );
-      throw err; // Paystack will retry if 200 is not returned
+      console.error(`Error processing transaction ${reference}:`, err);
+      throw err;
     }
   }
 
@@ -210,7 +211,6 @@ export class WalletService {
     });
   }
 
-  /** Signature Verification */
   private async verifySignature(payload: string, signature: string) {
     const paystackSecret = this.config.get('paystack.secretKey') as string;
     const hash = crypto
@@ -218,6 +218,8 @@ export class WalletService {
       .update(payload)
       .digest('hex');
 
-    return hash === signature;
+    const valid = hash === signature;
+    console.log('Signature verification:', valid ? 'passed' : 'failed');
+    return valid;
   }
 }

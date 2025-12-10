@@ -49,12 +49,22 @@ export class WalletController {
   @WalletWebhookSwagger()
   async webhook(@Req() req) {
     try {
+      // Capture raw body
       const body = req.rawBody
         ? req.rawBody.toString()
         : JSON.stringify(req.body);
+      console.log('Webhook received: body =', body);
 
+      // Capture headers
       const signature = req.headers['x-paystack-signature'] as string;
+      console.log('Webhook received: x-paystack-signature =', signature);
+
       const data = await this.walletService.handleWebhook(body, signature);
+
+      console.log(
+        'Webhook processed successfully for reference:',
+        data?.reference ?? 'N/A',
+      );
 
       return {
         status: HttpStatus.OK,
