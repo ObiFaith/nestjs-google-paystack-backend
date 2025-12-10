@@ -18,7 +18,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import express from 'express';
 import { LoginDto, SignupDto } from './dto';
 import * as _interface from '../interface';
 import { AuthService } from './auth.service';
@@ -85,7 +84,7 @@ export class AuthController {
     description: 'Response type for OAuth',
   })
   googleSignIn(
-    @Res({ passthrough: true }) res: express.Response,
+    @Res({ passthrough: true }) res,
     @Query('response_type') responseType?: string,
   ) {
     try {

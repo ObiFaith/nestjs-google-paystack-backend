@@ -1,4 +1,3 @@
-import { AuthRequest } from './interface';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
 import { NestFactory } from '@nestjs/core';
@@ -9,16 +8,10 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({ extended: true }));
   // Capture raw body for Paystack webhook
   app.use(
     '/wallet/paystack/webhook',
-    bodyParser.json({
-      verify: (req: AuthRequest, res: Response, buf: Buffer) => {
-        req.rawBody = buf.toString();
-      },
-    }),
+    bodyParser.raw({ type: 'application/json' }),
   );
   app.useGlobalPipes(new ValidationPipe());
 

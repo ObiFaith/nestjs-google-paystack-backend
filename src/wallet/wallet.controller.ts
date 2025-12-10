@@ -49,7 +49,7 @@ export class WalletController {
   @WalletWebhookSwagger()
   async webhook(@Req() req: _interface.AuthRequest) {
     try {
-      const body = req.rawBody as string;
+      const body = (req.rawBody as string).toString();
       const signature = req.headers['x-paystack-signature'] as string;
       const data = await this.walletService.handleWebhook(body, signature);
 
@@ -58,8 +58,8 @@ export class WalletController {
         message: 'Webhook processed',
         data,
       };
-    } catch (err) {
-      console.error('Webhook error:', err);
+    } catch (error) {
+      console.error('Webhook error:', error);
       return { status: false, message: 'Webhook failed' };
     }
   }
