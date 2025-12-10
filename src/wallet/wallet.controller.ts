@@ -47,9 +47,12 @@ export class WalletController {
   @Post('paystack/webhook')
   @HttpCode(HttpStatus.OK)
   @WalletWebhookSwagger()
-  async webhook(@Req() req: _interface.AuthRequest) {
+  async webhook(@Req() req) {
     try {
-      const body = (req.rawBody as string).toString();
+      const body = req.rawBody
+        ? req.rawBody.toString()
+        : JSON.stringify(req.body);
+
       const signature = req.headers['x-paystack-signature'] as string;
       const data = await this.walletService.handleWebhook(body, signature);
 
