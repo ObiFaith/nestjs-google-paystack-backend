@@ -4,9 +4,13 @@ import * as bodyParser from 'body-parser';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: true }));
   // Capture raw body for Paystack webhook
   app.use(
     '/wallet/paystack/webhook',
@@ -16,6 +20,7 @@ async function bootstrap() {
       },
     }),
   );
+  app.useGlobalPipes(new ValidationPipe());
 
   const config = new DocumentBuilder()
     .setTitle('Wallet Service with Paystack, JWT & API Keys')
