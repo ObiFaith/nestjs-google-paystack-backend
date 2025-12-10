@@ -5,7 +5,6 @@ import {
   Body,
   Req,
   Param,
-  Headers,
   UseGuards,
   HttpStatus,
   HttpCode,
@@ -18,15 +17,13 @@ import {
   WalletTransferSwagger,
   WalletTransactionsSwagger,
 } from './doc/wallet.swagger';
+import { DepositDto } from './dto';
 import * as _interface from '../interface';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
-import { ApiKeyGuardFactory } from 'src/api-key/guard';
-import { DepositDto, PaystackWebhookDto } from './dto';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { ApiKeyService } from '../api-key/api-key.service';
 import { Permission } from '../api-key/entities/api-key.entity';
-import { ReadAuthGuard } from 'src/api-key/guard/read-auth.guard';
+import { ApiKeyGuardFactory, ReadAuthGuard } from '../api-key/guard';
 
 @Controller('wallet')
 @ApiBearerAuth()
@@ -47,21 +44,25 @@ export class WalletController {
     };
   }
 
-  // @Post('paystack/webhook')
-  // @HttpCode(HttpStatus.OK)
-  // @WalletWebhookSwagger()
-  // async webhook(
-  //   @Body() body: PaystackWebhookDto,
-  //   @Headers('x-paystack-signature') sig: string,
-  // ) {
-  //   const data = await this.walletService.handleWebhook(body, sig);
+  @Post('paystack/webhook')
+  @HttpCode(HttpStatus.OK)
+  @WalletWebhookSwagger()
+  async webhook(@Req() req: _interface.AuthRequest) {
+    try {
+      const body = req.rawBody as string;
+      const signature = req.headers['x-paystack-signature'] as string;
+      const data = await this.walletService.handleWebhook(body, signature);
 
-  //   return {
-  //     status: HttpStatus.OK,
-  //     message: 'Webhook processed',
-  //     data,
-  //   };
-  // }
+      return {
+        status: HttpStatus.OK,
+        message: 'Webhook processed',
+        data,
+      };
+    } catch (err) {
+      console.error('Webhook error:', err);
+      return { status: false, message: 'Webhook failed' };
+    }
+  }
 
   @Get('deposit/:reference/status')
   @WalletStatusSwagger()

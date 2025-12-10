@@ -1,9 +1,11 @@
 import {
+  Logger,
   Injectable,
   NotFoundException,
-  // ForbiddenException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { Repository } from 'typeorm';
 import { UserReq } from '../interface';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +16,7 @@ import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
   constructor(
     @InjectRepository(Wallet)
     private walletRepo: Repository<Wallet>,
@@ -68,11 +71,12 @@ export class WalletService {
   }
 
   /** Paystack Webhook */
-  /*  async handleWebhook(event: any, signature: string) {
-    const valid = await this.verifySignature(event, signature);
-    if (!valid) throw new ForbiddenException('Invalid signature');
+  async handleWebhook(rawPayload: string, signature: string) {
+    if (!this.verifySignature(rawPayload, signature)) {
+      throw new ForbiddenException('Invalid signature');
+    }
 
-    const data = event.data;
+    const { data } = JSON.parse(rawPayload);
     const reference = data.reference;
 
     const tx = await this.txRepo.findOne({
@@ -80,22 +84,43 @@ export class WalletService {
       relations: ['wallet'],
     });
 
-    if (!tx) return { status: true };
-
-    if (data.status === 'success') {
-      // CREDIT WALLET ONLY HERE
-      tx.wallet.balance += data.amount;
-      tx.status = 'success';
-
-      await this.walletRepo.save(tx.wallet);
-      await this.txRepo.save(tx);
-    } else if (data.status === 'failed') {
-      tx.status = 'failed';
-      await this.txRepo.save(tx);
+    if (!tx) {
+      this.logger.warn(`Transaction not found for reference: ${reference}`);
+      return { status: true };
     }
 
-    return { status: true };
-  } */
+    if (tx.status === 'success') {
+      return { status: true };
+    }
+
+    try {
+      if (data.status === 'success') {
+        // Convert amount from kobo to Naira (if NGN)
+        const amount = data.amount / 100;
+
+        tx.wallet.balance += amount;
+        tx.status = 'success';
+
+        await this.walletRepo.save(tx.wallet);
+        await this.txRepo.save(tx);
+
+        this.logger.log(
+          `Wallet credited for tx: ${reference}, amount: ${amount}`,
+        );
+      } else if (data.status === 'failed') {
+        tx.status = 'failed';
+        await this.txRepo.save(tx);
+        this.logger.log(`Transaction failed for reference: ${reference}`);
+      }
+
+      return { status: true };
+    } catch (err) {
+      this.logger.error(
+        `Error processing transaction ${reference}: ${err.message}`,
+      );
+      throw err; // Paystack will retry if 200 is not returned
+    }
+  }
 
   /** Manual Status Check */
   async checkStatus(reference: string) {
@@ -186,15 +211,11 @@ export class WalletService {
   }
 
   /** Signature Verification */
-  private async verifySignature(payload, signature: string) {
-    const crypto = await import('crypto');
-    const paystackSecret = this.config.get<string>(
-      'paystack.secretKey',
-    ) as string;
-
+  private async verifySignature(payload: string, signature: string) {
+    const paystackSecret = this.config.get('paystack.secretKey') as string;
     const hash = crypto
       .createHmac('sha512', paystackSecret)
-      .update(JSON.stringify(payload))
+      .update(payload)
       .digest('hex');
 
     return hash === signature;

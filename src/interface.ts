@@ -38,6 +38,7 @@ export interface UserResponse {
 
 export interface AuthRequest extends Request {
   user: UserReq;
+  rawBody?: string;
 }
 
 export interface InitiatePaymentResponse {

@@ -7,7 +7,7 @@ import {
 import { firstValueFrom, Observable } from 'rxjs';
 import { ApiKeyService } from '../api-key.service';
 import { Permission } from '../entities/api-key.entity';
-import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../../auth/jwt/jwt-auth.guard';
 
 @Injectable()
 export class ReadAuthGuard implements CanActivate {

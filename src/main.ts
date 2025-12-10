@@ -1,14 +1,27 @@
-import { NestFactory } from '@nestjs/core';
+import { AuthRequest } from './interface';
 import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as bodyParser from 'body-parser';
+import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Capture raw body for Paystack webhook
+  app.use(
+    '/wallet/paystack/webhook',
+    bodyParser.json({
+      verify: (req: AuthRequest, res: Response, buf: Buffer) => {
+        req.rawBody = buf.toString();
+      },
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Wallet Service with Paystack, JWT & API Keys')
-    .setDescription('API Documentation for Wallet Service with Paystack, JWT & API Keys')
+    .setDescription(
+      'API Documentation for Wallet Service with Paystack, JWT & API Keys',
+    )
     .setVersion('1.0')
     .addBearerAuth({
       type: 'http',
@@ -17,6 +30,7 @@ async function bootstrap() {
       description:
         'Enter JWT token obtained from the login endpoint. Format: Bearer <token>',
     })
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'API Key')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
 
