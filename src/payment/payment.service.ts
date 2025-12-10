@@ -11,7 +11,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Payment } from './entities/payment.entity';
 import { ConfigService } from '@nestjs/config';
-import { InitiatePaymentResponse, VerifyPaymentResponse } from 'src/interface';
+import { InitiatePaymentResponse, VerifyPaymentResponse } from '../interface';
 
 @Injectable()
 export class PaymentService {

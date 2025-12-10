@@ -5,12 +5,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { UserReq } from 'src/interface';
+import { UserReq } from '../interface';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../user/entities/user.entity';
 import { Wallet, WalletTransaction } from './entities';
-import { PaymentService } from 'src/payment/payment.service';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class WalletService {

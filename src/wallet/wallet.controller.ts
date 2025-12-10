@@ -10,7 +10,7 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import * as _interface from 'src/interface';
+import * as _interface from '../interface';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
 import {
@@ -22,9 +22,9 @@ import {
   WalletTransactionsSwagger,
 } from './doc/wallet.swagger';
 import { DepositDto, PaystackWebhookDto } from './dto';
-import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
-import { ApiKeyService } from 'src/api-key/api-key.service';
-import { Permission } from 'src/api-key/entities/api-key.entity';
+import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
+import { ApiKeyService } from '../api-key/api-key.service';
+import { Permission } from '../api-key/entities/api-key.entity';
 
 @Controller('wallet')
 @ApiBearerAuth()

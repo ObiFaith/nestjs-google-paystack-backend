@@ -3,8 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { Wallet, WalletTransaction } from './entities';
-import { PaymentModule } from 'src/payment/payment.module';
-import { ApiKeyModule } from 'src/api-key/api-key.module';
+import { PaymentModule } from '../payment/payment.module';
+import { ApiKeyModule } from '../api-key/api-key.module';
 
 @Module({
   imports: [

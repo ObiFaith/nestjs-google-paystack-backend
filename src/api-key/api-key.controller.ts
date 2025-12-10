@@ -11,11 +11,11 @@ import {
   ApiKeyCreateSwagger,
   ApiKeyRolloverSwagger,
 } from './doc/api-key.swagger';
-import * as _interface from 'src/interface';
+import * as _interface from '../interface';
 import { ApiKeyService } from './api-key.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateApiKeyDto, RolloverApiKeyDto } from './dto';
-import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
 
 @ApiTags('Keys')
 @ApiBearerAuth()

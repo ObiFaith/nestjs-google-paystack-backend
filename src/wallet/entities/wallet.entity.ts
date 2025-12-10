@@ -6,7 +6,7 @@ import {
   JoinColumn,
   OneToMany,
 } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../../user/entities/user.entity';
 import { WalletTransaction } from './wallet-transaction.entity';
 
 @Entity('wallets')

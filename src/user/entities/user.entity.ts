@@ -7,8 +7,8 @@ import {
   CreateDateColumn,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Wallet } from 'src/wallet/entities/wallet.entity';
-import { ApiKey } from 'src/api-key/entities/api-key.entity';
+import { Wallet } from '../../wallet/entities/wallet.entity';
+import { ApiKey } from '../../api-key/entities/api-key.entity';
 
 @Entity('users')
 export class User {

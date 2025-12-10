@@ -18,7 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
-import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 
 @ApiTags('Payments')

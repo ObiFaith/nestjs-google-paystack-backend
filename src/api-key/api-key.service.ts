@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { UserReq } from 'src/interface';
+import { UserReq } from '../interface';
 import { MoreThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateApiKeyDto, RolloverApiKeyDto } from './dto';
