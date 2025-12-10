@@ -1,12 +1,14 @@
-import { ApiKey } from 'src/api-key/entities/api-key.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
+  OneToOne,
   OneToMany,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
+  CreateDateColumn,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Wallet } from 'src/wallet/entities/wallet.entity';
+import { ApiKey } from 'src/api-key/entities/api-key.entity';
 
 @Entity('users')
 export class User {
@@ -33,6 +35,9 @@ export class User {
 
   @OneToMany(() => ApiKey, (apiKey) => apiKey.user, { cascade: true })
   apiKeys: ApiKey[];
+
+  @OneToOne(() => Wallet, (wallet) => wallet.user)
+  wallet: Wallet;
 
   @Column({ type: 'timestamp', nullable: true })
   last_login_at: Date;

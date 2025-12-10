@@ -1,22 +1,21 @@
 import {
-  Controller,
-  Get,
+  Req,
   Post,
   Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Req,
-  HttpStatus,
   HttpCode,
+  UseGuards,
+  HttpStatus,
+  Controller,
 } from '@nestjs/common';
+import {
+  ApiKeyCreateSwagger,
+  ApiKeyRolloverSwagger,
+} from './doc/api-key.swagger';
 import * as _interface from 'src/interface';
 import { ApiKeyService } from './api-key.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateApiKeyDto, RolloverApiKeyDto } from './dto';
 import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
-import { ApiKeyCreateSwagger, ApiKeyRolloverSwagger } from './doc/api-key.swagger';
 
 @ApiTags('Keys')
 @ApiBearerAuth()
@@ -28,17 +27,32 @@ export class ApiKeyController {
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   @ApiKeyCreateSwagger()
-  create(
+  async create(
     @Req() req: _interface.AuthRequest,
     @Body() createApiKeyDto: CreateApiKeyDto,
   ) {
-    return this.apiKeyService.create(createApiKeyDto, req.user);
+    const data = await this.apiKeyService.create(createApiKeyDto, req.user);
+
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'API Key created successfully',
+      data,
+    };
   }
 
   @Post('rollover')
   @HttpCode(HttpStatus.CREATED)
   @ApiKeyRolloverSwagger()
-  rollover(@Body() dto: RolloverApiKeyDto) {
-    return this.apiKeyService.rollover(dto);
+  async rollover(
+    @Body() dto: RolloverApiKeyDto,
+    @Req() req: _interface.AuthRequest,
+  ) {
+    const data = await this.apiKeyService.rollover(dto, req.user);
+
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'API Key rolled over successfully',
+      data,
+    };
   }
 }

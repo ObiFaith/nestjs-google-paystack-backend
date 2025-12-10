@@ -24,6 +24,9 @@ export class ApiKey {
   user: User;
 
   @Column({ unique: true })
+  keyId: string;
+
+  @Column({ unique: true })
   @Index()
   key: string;
 

@@ -8,5 +8,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   imports: [TypeOrmModule.forFeature([ApiKey])],
   controllers: [ApiKeyController],
   providers: [ApiKeyService],
+  exports: [ApiKeyService],
 })
 export class ApiKeyModule {}

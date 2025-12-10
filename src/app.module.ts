@@ -7,6 +7,7 @@ import { ApiKeyModule } from './api-key/api-key.module';
 import { PaymentModule } from './payment/payment.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -22,11 +23,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         url: config.get<string>('db.url'),
         autoLoadEntities: true,
         synchronize: true,
-        extra: {
+        /* extra: {
           ssl: {
             rejectUnauthorized: false,
           },
-        },
+        }, */
       }),
     }),
     AuthModule,
@@ -34,6 +35,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     DatabaseModule,
     PaymentModule,
     ApiKeyModule,
+    WalletModule,
   ],
 })
 export class AppModule {}

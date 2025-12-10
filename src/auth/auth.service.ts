@@ -17,6 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 import { LoginDto, SignupDto } from './dto';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
+import { WalletService } from 'src/wallet/wallet.service';
 
 @Injectable()
 export class AuthService {
@@ -26,9 +27,10 @@ export class AuthService {
     private config: ConfigService,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
+    private readonly walletService: WalletService,
   ) {}
 
-  async generateJwtToken(user: UserReq) {
+  generateJwtToken(user: UserReq) {
     return this.jwtService.sign({
       id: user.id,
       email: user.email,
@@ -50,8 +52,10 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    const accessToken = await this.generateJwtToken(user);
-    return await this.mapUserResponse(user, accessToken);
+    const accessToken = this.generateJwtToken(user);
+
+    await this.walletService.getOrCreateWallet(user);
+    return this.mapUserResponse(user, accessToken);
   }
 
   async login(dto: LoginDto) {
@@ -65,8 +69,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const accessToken = await this.generateJwtToken(user);
-    return await this.mapUserResponse(user, accessToken);
+    const accessToken = this.generateJwtToken(user);
+    return this.mapUserResponse(user, accessToken);
   }
 
   googleOauth() {
@@ -121,10 +125,11 @@ export class AuthService {
         picture,
         email_verified,
       });
-
       // Create JWT
-      const accessToken = await this.generateJwtToken(user);
-      return await this.mapUserResponse(user, accessToken);
+      const accessToken = this.generateJwtToken(user);
+
+      await this.walletService.getOrCreateWallet(user);
+      return this.mapUserResponse(user, accessToken);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         throw new UnauthorizedException('Invalid Google code');
@@ -134,7 +139,7 @@ export class AuthService {
     }
   }
 
-  async mapUserResponse(user: Partial<UserResponse>, accessToken: string) {
+  mapUserResponse(user: Partial<UserResponse>, accessToken: string) {
     return {
       id: user.id,
       email: user.email,
