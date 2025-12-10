@@ -143,9 +143,11 @@ export class ApiKeyService {
     hashedKey: string;
     keyId: string;
   }> {
-    const rawKey = 'sk_live_' + crypto.randomBytes(32).toString('hex');
-    const hashedKey = await bcrypt.hash(rawKey, 10);
     const keyId = crypto.randomBytes(16).toString('hex');
+    const secret = crypto.randomBytes(16).toString('hex');
+    const rawKey = `sk_live_${keyId}${secret}`;
+    const hashedKey = await bcrypt.hash(rawKey, 10);
+
     return { rawKey, hashedKey, keyId };
   }
 
@@ -187,7 +189,10 @@ export class ApiKeyService {
     rawKey: string,
     requiredPermission?: Permission,
   ): Promise<ApiKey> {
-    const keyId = rawKey.slice(-32);
+    if (!rawKey.startsWith('sk_live_'))
+      throw new ForbiddenException('Invalid API key');
+
+    const keyId = rawKey.slice(8, 40);
     const key = await this.apiKeyRepository.findOne({
       where: { keyId, revoked: false },
     });

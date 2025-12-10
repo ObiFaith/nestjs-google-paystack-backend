@@ -50,14 +50,7 @@ export class WalletService {
     if (!amount || amount < 100)
       throw new BadRequestException('Amount invalid');
 
-    const wallet = await this.walletRepo.findOne({
-      where: { user: { id: user.id } },
-    });
-
-    console.log('first', wallet);
-
-    if (!wallet) throw new NotFoundException('Wallet not found');
-
+    const wallet = await this.getUserWallet(user.id);
     const init = await this.paymentService.initiatePayment(user.email, amount);
 
     // Save pending transaction
@@ -117,16 +110,23 @@ export class WalletService {
     };
   }
 
+  /** Get User Wallet
+   * @param userId - User Id
+   */
+  async getUserWallet(userId: string) {
+    const wallet = await this.walletRepo.findOne({
+      where: { user: { id: userId } },
+    });
+
+    if (!wallet) throw new NotFoundException('Wallet not found');
+    return wallet;
+  }
+
   /** Get Wallet Balance
    * @param user - User entity
    */
   async getBalance(user: UserReq) {
-    const wallet = await this.walletRepo.findOne({
-      where: { user: { id: user.id } },
-    });
-
-    if (!wallet) throw new NotFoundException('Wallet not found');
-
+    const wallet = await this.getUserWallet(user.id);
     return { balance: wallet.balance };
   }
 
