@@ -206,6 +206,28 @@ export class WalletService {
     return { balance: wallet.balance };
   }
 
+  async generateReference(length = 10) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let ref = '';
+    for (let i = 0; i < length; i++) {
+      ref += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return ref;
+  }
+
+  async createUniqueReference() {
+    let exists = true;
+    let reference: string = '';
+
+    while (exists) {
+      reference = await this.generateReference();
+      const tx = await this.walletTxRepo.findOne({ where: { reference } });
+      exists = tx !== null;
+    }
+
+    return reference;
+  }
+
   /** Wallet Transfer */
   async transfer(sender: UserReq, wallet_number: string, amount: number) {
     if (!amount || amount <= 0) {
@@ -247,15 +269,16 @@ export class WalletService {
         throw new BadRequestException('Insufficient balance');
       }
 
-      // Generate reference
-      const reference = `TRF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Generate references
+      const senderRef = await this.createUniqueReference();
+      const recieverRef = await this.createUniqueReference();
 
       // Deduct from sender
       senderWallet.balance = Number(senderWallet.balance) - amount;
       const debitTx = this.walletTxRepo.create({
         wallet: senderWallet,
         amount: -amount,
-        reference,
+        reference: senderRef,
         type: 'transfer',
         status: 'success',
       });
@@ -265,7 +288,7 @@ export class WalletService {
       const creditTx = this.walletTxRepo.create({
         wallet: receiverWallet,
         amount,
-        reference,
+        reference: recieverRef,
         type: 'transfer',
         status: 'success',
       });
@@ -279,7 +302,7 @@ export class WalletService {
       return {
         status: 'success',
         message: 'Transfer completed',
-        reference,
+        reference: senderRef,
         amount,
         recipient: {
           wallet_number: receiverWallet.wallet_number,
