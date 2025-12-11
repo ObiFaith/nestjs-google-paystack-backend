@@ -112,7 +112,7 @@ export class WalletService {
 
   private async processSuccessfulCharge(data: PayloadData) {
     const reference = data.reference;
-    const amount = data.amount / 100; // kobo to Naira
+    const amountInNaira = data.amount / 100; // kobo to Naira
 
     await this.walletRepo.manager.transaction(async (manager) => {
       // Update Payment record
@@ -163,13 +163,13 @@ export class WalletService {
       }
 
       // Update wallet balance
-      wallet.balance += amount;
+      wallet.balance = Number(wallet.balance) + amountInNaira;
       walletTx.status = 'success';
 
       await manager.save(Wallet, wallet);
       await manager.save(WalletTransaction, walletTx);
 
-      this.logger.log(`Payment: ${reference} | Credited: ₦${amount}`);
+      this.logger.log(`Payment: ${reference} | Credited: ₦${amountInNaira}`);
     });
   }
 
@@ -253,7 +253,7 @@ export class WalletService {
       const reference = `TRF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       // 6. Deduct from sender
-      senderWallet.balance -= amount;
+      senderWallet.balance = Number(senderWallet.balance) - amount;
       const debitTx = this.walletTxRepo.create({
         wallet: senderWallet,
         amount: -amount,
@@ -263,7 +263,7 @@ export class WalletService {
       });
 
       // 7. Credit receiver
-      receiverWallet.balance += amount;
+      receiverWallet.balance = Number(receiverWallet.balance) + amount;
       const creditTx = this.walletTxRepo.create({
         wallet: receiverWallet,
         amount,
