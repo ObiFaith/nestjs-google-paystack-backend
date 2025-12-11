@@ -105,6 +105,7 @@ export class WalletService {
     }
     //Process the payment
     await this.processSuccessfulCharge(data);
+    return { status: true };
   }
 
   private async processSuccessfulCharge(data: PayloadData) {
@@ -112,7 +113,7 @@ export class WalletService {
     const amount = data.amount / 100; // kobo to Naira
 
     await this.walletRepo.manager.transaction(async (manager) => {
-      // Update Payment record (what Paystack says)
+      // Update Payment record
       const payment = await manager.findOne(Payment, {
         where: { reference },
         lock: { mode: 'pessimistic_write' },
@@ -132,10 +133,9 @@ export class WalletService {
       payment.paid_at = new Date();
       await manager.save(Payment, payment);
 
-      // Update WalletTransaction record (how wallet was affected)
+      // Update WalletTransaction record
       const walletTx = await manager.findOne(WalletTransaction, {
         where: { reference },
-        relations: ['wallet'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -149,14 +149,25 @@ export class WalletService {
         return;
       }
 
+      // Fetch and lock the wallet separately
+      const wallet = await manager.findOne(Wallet, {
+        where: { id: walletTx.id }, // Use the foreign key
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        this.logger.warn(`Wallet not found for tx: ${reference}`);
+        return;
+      }
+
       // Update wallet balance
-      walletTx.wallet.balance += amount;
+      wallet.balance += amount;
       walletTx.status = 'success';
 
-      await manager.save(Wallet, walletTx.wallet);
+      await manager.save(Wallet, wallet);
       await manager.save(WalletTransaction, walletTx);
 
-      this.logger.log(`✅ Payment: ${reference} | Credited: ₦${amount}`);
+      this.logger.log(`Payment: ${reference} | Credited: ₦${amount}`);
     });
   }
 
@@ -218,7 +229,7 @@ export class WalletService {
       // 2. Get receiver's wallet by wallet number with user info
       const receiverWallet = await manager.findOne(Wallet, {
         where: { wallet_number },
-        relations: ['user'], // ⭐ Now you know who owns this wallet
+        relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -264,7 +275,7 @@ export class WalletService {
       await manager.save(WalletTransaction, [debitTx, creditTx]);
 
       this.logger.log(
-        `✅ Transfer: ${senderWallet.user.name} → ${receiverWallet.user.name} | ₦${amount}`,
+        `Transfer: ${senderWallet.user.name} → ${receiverWallet.user.name} | ₦${amount}`,
       );
 
       return {
@@ -274,7 +285,7 @@ export class WalletService {
         amount,
         recipient: {
           wallet_number: receiverWallet.wallet_number,
-          name: receiverWallet.user.name, // ⭐ Now you can return recipient name
+          name: receiverWallet.user.name,
         },
       };
     });

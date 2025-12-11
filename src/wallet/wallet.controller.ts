@@ -48,14 +48,19 @@ export class WalletController {
   }
 
   @Get('me')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async getMyWallet(@Req() req: _interface.AuthRequest) {
     const wallet = await this.walletService.getUserWallet(req.user.id);
 
     return {
-      balance: wallet.balance,
-      wallet_number: wallet.wallet_number,
-      created_at: wallet.created_at,
+      status: HttpStatus.OK,
+      message: 'Wallet retrieved successfully',
+      data: {
+        balance: wallet.balance,
+        wallet_number: wallet.wallet_number,
+        created_at: wallet.created_at,
+      },
     };
   }
 
@@ -76,9 +81,16 @@ export class WalletController {
       throw new BadRequestException('Missing raw body');
     }
 
-    await this.walletService.handlePaystackWebhook(rawBody, signature);
+    const data = await this.walletService.handlePaystackWebhook(
+      rawBody,
+      signature,
+    );
 
-    return { status: true };
+    return {
+      status: HttpStatus.OK,
+      message: 'Payment successful',
+      data,
+    };
   }
 
   @Get('deposit/:reference/status')
