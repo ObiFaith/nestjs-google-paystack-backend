@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  JoinColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
@@ -21,10 +22,14 @@ export class ApiKey {
   id: string;
 
   @ManyToOne(() => User, (user) => user.apiKeys, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Column()
+  user_id: string;
+
   @Column({ unique: true })
-  keyId: string;
+  key_id: string;
 
   @Column({ unique: true })
   @Index()
@@ -37,17 +42,17 @@ export class ApiKey {
   permissions: Permission[];
 
   @Column({ type: 'timestamptz' })
-  expiresAt: Date;
+  expires_at: Date;
 
   @Column({ default: false })
   revoked: boolean;
 
   @Column({ type: 'uuid', nullable: true })
-  rolledFromId?: string;
+  rolled_from_id?: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 }

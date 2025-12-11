@@ -11,7 +11,6 @@ import {
   Headers,
   BadRequestException,
 } from '@nestjs/common';
-import type { RawBodyRequest } from '@nestjs/common';
 import {
   WalletStatusSwagger,
   WalletBalanceSwagger,
@@ -20,23 +19,24 @@ import {
   WalletTransferSwagger,
   WalletTransactionsSwagger,
 } from './doc/wallet.swagger';
-import { DepositDto, TransferDto } from './dto';
 import * as _interface from '../interface';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { DepositDto, TransferDto } from './dto';
 import { WalletService } from './wallet.service';
-import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
+import type { RawBodyRequest } from '@nestjs/common';
+import { JwtOrApiKeyGuardFactory } from '../api-key/guard';
+import { ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { Permission } from '../api-key/entities/api-key.entity';
-import { ApiKeyGuardFactory, ReadAuthGuard } from '../api-key/guard';
 
 @Controller('wallet')
 @ApiBearerAuth()
+@ApiSecurity('API Key')
 export class WalletController {
   constructor(private walletService: WalletService) {}
 
   @Post('deposit')
   @WalletDepositSwagger()
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(JwtAuthGuard, ApiKeyGuardFactory(Permission.DEPOSIT))
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.DEPOSIT))
   async deposit(@Body() body: DepositDto, @Req() req: _interface.AuthRequest) {
     const data = await this.walletService.deposit(req.user, body.amount);
 
@@ -49,7 +49,7 @@ export class WalletController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
   async getMyWallet(@Req() req: _interface.AuthRequest) {
     const wallet = await this.walletService.getUserWallet(req.user.id);
 
@@ -96,7 +96,7 @@ export class WalletController {
   @Get('deposit/:reference/status')
   @WalletStatusSwagger()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(ReadAuthGuard)
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
   async getStatus(@Param('reference') ref: string) {
     const data = await this.walletService.checkStatus(ref);
 
@@ -109,8 +109,8 @@ export class WalletController {
 
   @Get('balance')
   @WalletBalanceSwagger()
-  @UseGuards(ReadAuthGuard)
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
   async getBalance(@Req() req: _interface.AuthRequest) {
     const data = await this.walletService.getBalance(req.user);
 
@@ -124,7 +124,7 @@ export class WalletController {
   @Post('transfer')
   @WalletTransferSwagger()
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(JwtAuthGuard, ApiKeyGuardFactory(Permission.TRANSFER))
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.TRANSFER))
   async transfer(
     @Req() req: _interface.AuthRequest,
     @Body() transferDto: TransferDto,
@@ -143,9 +143,9 @@ export class WalletController {
   }
 
   @Get('transactions')
-  @UseGuards(ReadAuthGuard)
   @WalletTransactionsSwagger()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
   async transactions(@Req() req: _interface.AuthRequest) {
     const data = await this.walletService.history(req.user);
 

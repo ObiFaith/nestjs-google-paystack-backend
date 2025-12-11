@@ -8,21 +8,38 @@ import {
 import { ApiKeyService } from '../api-key.service';
 import { UserService } from 'src/user/user.service';
 import { Permission } from '../entities/api-key.entity';
+import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
 
-export function ApiKeyGuardFactory(permission?: Permission): Type<CanActivate> {
+export function JwtOrApiKeyGuardFactory(
+  permission?: Permission,
+): Type<CanActivate> {
   @Injectable()
-  class ApiKeyGuard implements CanActivate {
+  class JwtOrApiKeyGuard implements CanActivate {
     constructor(
-      private readonly userService: UserService,
       private readonly apiKeyService: ApiKeyService,
+      private readonly userService: UserService,
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
+      // Try JWT first
+      try {
+        const jwtGuard = new JwtAuthGuard();
+        const result = await jwtGuard.canActivate(context);
+        if (result) return true;
+      } catch (e) {
+        // JWT failed; try API key
+      }
+
+      // Try API key
       const request = context.switchToHttp().getRequest();
       const apiKey =
         request.headers['x-api-key'] || request.headers['X-Api-Key'];
 
-      if (!apiKey) throw new UnauthorizedException('API key is missing');
+      if (!apiKey) {
+        throw new UnauthorizedException(
+          'Authentication required: provide either JWT token or API key',
+        );
+      }
 
       // This will throw if invalid or missing permission
       const key = await this.apiKeyService.validateApiKey(apiKey, permission);
@@ -40,5 +57,5 @@ export function ApiKeyGuardFactory(permission?: Permission): Type<CanActivate> {
       return true;
     }
   }
-  return ApiKeyGuard;
+  return JwtOrApiKeyGuard;
 }

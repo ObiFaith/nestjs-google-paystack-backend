@@ -41,11 +41,12 @@ export class ApiKeyService {
     // Create and save entity
     const apiKey = this.apiKeyRepository.create({
       user,
+      user_id: user.id,
       name: dto.name,
       permissions,
       key: hashedKey,
-      keyId,
-      expiresAt,
+      key_id: keyId,
+      expires_at: expiresAt,
       revoked: false,
     });
 
@@ -71,12 +72,12 @@ export class ApiKeyService {
         'Expired API key not found or does not belong to the user',
       );
 
-    if (expiredKey.expiresAt.getTime() > Date.now())
+    if (expiredKey.expires_at.getTime() > Date.now())
       throw new BadRequestException('API key has not expired yet');
 
     // Key must NOT have produced a rollover already
     const alreadyRolled = await this.apiKeyRepository.findOne({
-      where: { rolledFromId: expiredKey.id },
+      where: { rolled_from_id: expiredKey.id },
     });
 
     if (alreadyRolled)
@@ -98,13 +99,14 @@ export class ApiKeyService {
     // Save new API key with same permissions
     const newApiKey = this.apiKeyRepository.create({
       user: expiredKey.user,
+      user_id: expiredKey.user.id,
       name: expiredKey.name,
       permissions: expiredKey.permissions,
       key: hashedKey,
-      keyId,
-      expiresAt,
+      key_id: keyId,
+      expires_at: expiresAt,
       revoked: false,
-      rolledFromId: expiredKey.id,
+      rolled_from_id: expiredKey.id,
     });
 
     await this.apiKeyRepository.save(newApiKey);
@@ -124,7 +126,7 @@ export class ApiKeyService {
       where: {
         user: { id: userId },
         revoked: false,
-        expiresAt: MoreThan(new Date(Date.now())),
+        expires_at: MoreThan(new Date(Date.now())),
       },
     });
 
@@ -194,11 +196,11 @@ export class ApiKeyService {
 
     const keyId = rawKey.slice(8, 40);
     const key = await this.apiKeyRepository.findOne({
-      where: { keyId, revoked: false },
+      where: { key_id: keyId, revoked: false },
     });
 
     if (!key) throw new ForbiddenException('Invalid API key');
-    if (key.expiresAt.getTime() < Date.now())
+    if (key.expires_at.getTime() < Date.now())
       throw new ForbiddenException('API key expired');
 
     const match = await bcrypt.compare(rawKey, key.key);

@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   CreateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 import { Wallet } from './wallet.entity';
 
@@ -13,10 +14,11 @@ export class WalletTransaction {
   id: string;
 
   @ManyToOne(() => Wallet, (wallet) => wallet.transactions)
+  @JoinColumn({ name: 'wallet_id' })
   wallet: Wallet;
 
   @Column()
-  walletId: string;
+  wallet_id: string;
 
   @Column()
   type: 'deposit' | 'transfer';

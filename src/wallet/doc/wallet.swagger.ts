@@ -11,11 +11,6 @@ import { applyDecorators } from '@nestjs/common';
 export const WalletDepositSwagger = () =>
   applyDecorators(
     ApiOperation({ summary: 'Initiate Wallet Deposit (Paystack)' }),
-    ApiHeader({
-      name: 'x-api-key',
-      description: 'API key with deposit permission',
-      required: true,
-    }),
     ApiBody({
       schema: {
         example: { amount: 5000 },
@@ -53,11 +48,6 @@ export const WalletStatusSwagger = () =>
   applyDecorators(
     ApiOperation({ summary: 'Check deposit transaction status' }),
     ApiParam({ name: 'reference', required: true }),
-    ApiHeader({
-      name: 'x-api-key',
-      description: 'Optional API key with READ permission',
-      required: false,
-    }),
     ApiResponse({
       status: HttpStatus.OK,
       schema: {
@@ -77,11 +67,6 @@ export const WalletStatusSwagger = () =>
 export const WalletBalanceSwagger = () =>
   applyDecorators(
     ApiOperation({ summary: 'Get wallet balance' }),
-    ApiHeader({
-      name: 'x-api-key',
-      description: 'Optional API key with READ permission',
-      required: false,
-    }),
     ApiResponse({
       status: HttpStatus.OK,
       schema: {
@@ -105,11 +90,6 @@ export const WalletTransferSwagger = () =>
         },
       },
     }),
-    ApiHeader({
-      name: 'x-api-key',
-      description: 'API key with transfer permission',
-      required: true,
-    }),
     ApiResponse({
       status: HttpStatus.CREATED,
       schema: {
@@ -130,11 +110,6 @@ export const WalletTransferSwagger = () =>
 export const WalletTransactionsSwagger = () =>
   applyDecorators(
     ApiOperation({ summary: 'Get wallet transaction history' }),
-    ApiHeader({
-      name: 'x-api-key',
-      description: 'Optional API key with READ permission',
-      required: false,
-    }),
     ApiResponse({
       status: HttpStatus.OK,
       schema: {

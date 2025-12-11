@@ -14,6 +14,13 @@ export class UserService {
   ) {}
 
   /**
+   * Find user by id
+   */
+  async findByUserId(userId: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { id: userId } });
+  }
+
+  /**
    * Find user by Google ID (sub)
    */
   async findByGoogleId(googleId: string): Promise<User | null> {
