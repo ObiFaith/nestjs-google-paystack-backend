@@ -50,7 +50,9 @@ export class WalletService {
    * @param user - User entity
    */
   async createUserWallet(user: User) {
-    const existingWallet = await this.getUserWallet(user.id);
+    const existingWallet = await this.walletRepo.findOne({
+      where: { user: { id: user.id } },
+    });
 
     if (existingWallet) {
       const { wallet_number, balance } = existingWallet;
@@ -151,7 +153,7 @@ export class WalletService {
 
       // Fetch and lock the wallet separately
       const wallet = await manager.findOne(Wallet, {
-        where: { id: walletTx.walletId  }, // Use the foreign key
+        where: { id: walletTx.walletId }, // Use the foreign key
         lock: { mode: 'pessimistic_write' },
       });
 
