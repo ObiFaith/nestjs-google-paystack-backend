@@ -153,7 +153,7 @@ export class WalletService {
 
       // Fetch and lock the wallet separately
       const wallet = await manager.findOne(Wallet, {
-        where: { id: walletTx.id },
+        where: { id: walletTx.walletId }, // Use the foreign key
         lock: { mode: 'pessimistic_write' },
       });
 

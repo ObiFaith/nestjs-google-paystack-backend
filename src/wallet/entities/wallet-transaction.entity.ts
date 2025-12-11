@@ -16,6 +16,9 @@ export class WalletTransaction {
   wallet: Wallet;
 
   @Column()
+  walletId: string;
+
+  @Column()
   type: 'deposit' | 'transfer';
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
