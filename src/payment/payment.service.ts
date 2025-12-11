@@ -29,6 +29,7 @@ export class PaymentService {
       throw new BadRequestException('Invalid amount');
     }
 
+    const amountInKobo = amount * 100;
     const paystackApiUrl = this.config.get<string>('paystack.apiUrl') as string;
     const paystackSecret = this.config.get<string>(
       'paystack.secretKey',
@@ -37,7 +38,7 @@ export class PaymentService {
     try {
       const { data }: { data: InitiatePaymentResponse } = await axios.post(
         `${paystackApiUrl}/initialize`,
-        { email: userEmail, amount },
+        { email: userEmail, amount: amountInKobo },
         { headers: { Authorization: `Bearer ${paystackSecret}` } },
       );
 
