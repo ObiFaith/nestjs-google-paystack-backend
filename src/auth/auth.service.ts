@@ -54,7 +54,7 @@ export class AuthService {
     });
 
     const accessToken = this.generateJwtToken(user);
-    const wallet = await this.walletService.createUserWallet(user);
+    const wallet = (await this.walletService.createUserWallet(user)) as Wallet;
     return this.mapUserResponse(user, accessToken, wallet);
   }
 
@@ -70,7 +70,7 @@ export class AuthService {
     }
 
     const accessToken = this.generateJwtToken(user);
-    const wallet = await this.walletService.createUserWallet(user);
+    const wallet = await this.walletService.getUserWallet(user.id);
     return this.mapUserResponse(user, accessToken, wallet);
   }
 
@@ -126,9 +126,12 @@ export class AuthService {
         picture,
         email_verified,
       });
-      // Create JWT
+
       const accessToken = this.generateJwtToken(user);
-      const wallet = await this.walletService.createUserWallet(user);
+      const wallet = (await this.walletService.createUserWallet(
+        user,
+      )) as Wallet;
+
       return this.mapUserResponse(user, accessToken, wallet);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {

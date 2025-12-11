@@ -50,14 +50,22 @@ export class WalletService {
    * @param user - User entity
    */
   async createUserWallet(user: User) {
-    const wallet_number = await this.generateUniqueWalletNumber();
-    const wallet = this.walletRepo.create({
-      balance: 0,
-      user,
-      wallet_number,
-    });
+    const existingWallet = await this.getUserWallet(user.id);
 
-    await this.walletRepo.save(wallet);
+    if (existingWallet) {
+      const { wallet_number, balance } = existingWallet;
+      return { wallet_number, balance };
+    }
+
+    const wallet_number = await this.generateUniqueWalletNumber();
+
+    await this.walletRepo.save(
+      this.walletRepo.create({
+        balance: 0,
+        user,
+        wallet_number,
+      }),
+    );
     return { wallet_number, balance: 0 };
   }
 
