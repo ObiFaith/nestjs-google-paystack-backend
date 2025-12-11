@@ -217,10 +217,9 @@ export class WalletService {
     }
 
     return await this.walletRepo.manager.transaction(async (manager) => {
-      // 1. Get sender's wallet with user info
+      // Get sender's wallet
       const senderWallet = await manager.findOne(Wallet, {
         where: { userId: sender.id },
-        relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -228,10 +227,9 @@ export class WalletService {
         throw new NotFoundException('Sender wallet not found');
       }
 
-      // 2. Get receiver's wallet by wallet number with user info
+      // Get receiver's wallet by wallet number
       const receiverWallet = await manager.findOne(Wallet, {
         where: { wallet_number },
-        relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -239,20 +237,20 @@ export class WalletService {
         throw new NotFoundException('Receiver wallet not found');
       }
 
-      // 3. Prevent self-transfer
+      // Prevent self-transfer
       if (senderWallet.id === receiverWallet.id) {
         throw new BadRequestException('Cannot transfer to yourself');
       }
 
-      // 4. Check balance
-      if (senderWallet.balance < amount) {
+      // Check balance
+      if (Number(senderWallet.balance) < amount) {
         throw new BadRequestException('Insufficient balance');
       }
 
-      // 5. Generate reference
+      // Generate reference
       const reference = `TRF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      // 6. Deduct from sender
+      // Deduct from sender
       senderWallet.balance = Number(senderWallet.balance) - amount;
       const debitTx = this.walletTxRepo.create({
         wallet: senderWallet,
@@ -262,7 +260,7 @@ export class WalletService {
         status: 'success',
       });
 
-      // 7. Credit receiver
+      // Credit receiver
       receiverWallet.balance = Number(receiverWallet.balance) + amount;
       const creditTx = this.walletTxRepo.create({
         wallet: receiverWallet,
@@ -272,13 +270,11 @@ export class WalletService {
         status: 'success',
       });
 
-      // 8. Save all
+      // Save all
       await manager.save(Wallet, [senderWallet, receiverWallet]);
       await manager.save(WalletTransaction, [debitTx, creditTx]);
 
-      this.logger.log(
-        `Transfer: ${senderWallet.user.name} → ${receiverWallet.user.name} | ₦${amount}`,
-      );
+      this.logger.log(`Transfer: ₦${amount} | ${wallet_number}`);
 
       return {
         status: 'success',
@@ -287,7 +283,6 @@ export class WalletService {
         amount,
         recipient: {
           wallet_number: receiverWallet.wallet_number,
-          name: receiverWallet.user.name,
         },
       };
     });
