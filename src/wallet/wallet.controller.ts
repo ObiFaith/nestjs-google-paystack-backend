@@ -26,12 +26,16 @@ import type { RawBodyRequest } from '@nestjs/common';
 import { JwtOrApiKeyGuardFactory } from '../api-key/guard';
 import { ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { Permission } from '../api-key/entities/api-key.entity';
+import { PaymentService } from 'src/payment/payment.service';
 
 @Controller('wallet')
 @ApiBearerAuth()
 @ApiSecurity('API Key')
 export class WalletController {
-  constructor(private walletService: WalletService) {}
+  constructor(
+    private walletService: WalletService,
+    private paymentService: PaymentService,
+  ) {}
 
   @Post('deposit')
   @WalletDepositSwagger()
@@ -97,7 +101,21 @@ export class WalletController {
   @WalletStatusSwagger()
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
-  async getStatus(@Param('reference') ref: string) {
+  async getDepositStatus(@Param('reference') ref: string) {
+    const data = await this.paymentService.verifyPayment(ref);
+
+    return {
+      status: HttpStatus.OK,
+      message: 'Transaction status retrieved',
+      data,
+    };
+  }
+
+  @Get('transfer/:reference/status')
+  @WalletStatusSwagger()
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtOrApiKeyGuardFactory(Permission.READ))
+  async getTransferStatus(@Param('reference') ref: string) {
     const data = await this.walletService.checkStatus(ref);
 
     return {

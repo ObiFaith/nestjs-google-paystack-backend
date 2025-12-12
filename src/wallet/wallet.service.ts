@@ -287,6 +287,8 @@ export class WalletService {
     const tx = await this.walletTxRepo.findOne({ where: { reference } });
 
     if (!tx) throw new NotFoundException('Transaction not found');
+    if (tx.type !== 'transfer')
+      throw new NotFoundException('Transaction not of type "transfer"');
 
     return {
       reference: tx.reference,
