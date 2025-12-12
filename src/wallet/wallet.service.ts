@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { Payload, PayloadData, UserReq } from '../interface';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -101,12 +101,10 @@ export class WalletService {
     const payload = JSON.parse(rawBody.toString('utf8')) as Payload;
     const { event, data } = payload;
 
-    if (event !== 'charge.success') {
-      this.logger.log(`Ignoring event: ${event}`);
-      return { status: true };
-    }
-    //Process the payment
-    await this.processSuccessfulCharge(data);
+    if (event === 'charge.success') await this.processSuccessfulCharge(data);
+    else if (event === 'charge.failed') await this.processFailedCharge(data);
+    else this.logger.log(`Ignoring event: ${event}`);
+
     return { status: true };
   }
 
@@ -171,6 +169,112 @@ export class WalletService {
 
       this.logger.log(`Payment: ${reference} | Credited: ₦${amountInNaira}`);
     });
+  }
+
+  private async processFailedCharge(data: PayloadData) {
+    const reference = data.reference;
+
+    await this.walletRepo.manager.transaction(async (manager) => {
+      // Update Payment record
+      const payment = await manager.findOne(Payment, {
+        where: { reference },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!payment) {
+        this.logger.warn(`Payment not found for failed charge: ${reference}`);
+        return;
+      }
+
+      if (payment.status === 'failed') {
+        this.logger.log(`Payment already marked as failed: ${reference}`);
+        return;
+      }
+
+      payment.status = 'failed';
+      await manager.save(Payment, payment);
+
+      // Update WalletTransaction record
+      const walletTx = await manager.findOne(WalletTransaction, {
+        where: { reference },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!walletTx) {
+        this.logger.warn(
+          `WalletTransaction not found for failed charge: ${reference}`,
+        );
+        return;
+      }
+
+      if (walletTx.status === 'failed') {
+        this.logger.log(
+          `WalletTransaction already marked as failed: ${reference}`,
+        );
+        return;
+      }
+
+      walletTx.status = 'failed';
+      await manager.save(WalletTransaction, walletTx);
+
+      this.logger.log(`Payment failed: ${reference}`);
+    });
+  }
+
+  /** Cron job: Sync pending transactions with Paystack */
+  async syncPendingTransactions() {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const pendingTxs = await this.walletTxRepo.find({
+      where: {
+        status: 'pending',
+        type: 'deposit',
+        created_at: LessThan(fiveMinutesAgo), // Only check old ones
+      },
+      take: 50, // Batch process to avoid rate limits
+    });
+
+    if (pendingTxs.length === 0) {
+      this.logger.log('No pending transactions to sync');
+      return;
+    }
+
+    this.logger.log(
+      `Found ${pendingTxs.length} pending transactions to verify`,
+    );
+
+    for (const tx of pendingTxs) {
+      try {
+        // Verify with Paystack
+        const verification = await this.paymentService.verifyPayment(
+          tx.reference,
+        );
+
+        if (verification.status === 'success') {
+          await this.processSuccessfulCharge({
+            reference: verification.reference,
+            amount: verification.amount,
+          });
+
+          this.logger.log(`Synced successful payment: ${tx.reference}`);
+        } else if (verification.status === 'failed') {
+          await this.processFailedCharge({
+            reference: verification.reference,
+            amount: verification.amount,
+          });
+
+          this.logger.log(`Synced failed payment: ${tx.reference}`);
+        }
+        // If still pending, leave it for next run
+
+        // Rate limit protection
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        this.logger.error(`Failed to sync ${tx.reference}:`, error.message);
+        // Continue with next transaction
+      }
+    }
+
+    this.logger.log('Pending transaction sync completed');
   }
 
   /** Manual Status Check */
