@@ -7,15 +7,15 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { LessThan, Repository } from 'typeorm';
-import { Payload, PayloadData, UserReq } from '../interface';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../user/entities/user.entity';
 import { Wallet, WalletTransaction } from './entities';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PaymentService } from '../payment/payment.service';
+import { Payload, PayloadData, UserReq } from '../interface';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { WalletNumberHelper } from './helpers/wallet-number.helper';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class WalletService {
@@ -23,9 +23,6 @@ export class WalletService {
   constructor(
     @InjectRepository(Wallet)
     private walletRepo: Repository<Wallet>,
-
-    @InjectRepository(Payment)
-    private paymentRepo: Repository<Payment>,
 
     @InjectRepository(WalletTransaction)
     private walletTxRepo: Repository<WalletTransaction>,
@@ -101,6 +98,8 @@ export class WalletService {
 
     const payload = JSON.parse(rawBody.toString('utf8')) as Payload;
     const { event, data } = payload;
+
+    console.log('event', event);
 
     if (event === 'charge.success') await this.processSuccessfulCharge(data);
     else if (event === 'charge.failed') await this.processFailedCharge(data);
@@ -195,11 +194,10 @@ export class WalletService {
 
       if (payment.status === 'failed') {
         this.logger.log(`Payment already marked as failed: ${reference}`);
-        return;
+      } else {
+        payment.status = 'failed';
+        await manager.save(Payment, payment);
       }
-
-      payment.status = 'failed';
-      await manager.save(Payment, payment);
 
       // Update WalletTransaction record
       const walletTx = await manager.findOne(WalletTransaction, {
