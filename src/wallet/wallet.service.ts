@@ -15,6 +15,7 @@ import { Wallet, WalletTransaction } from './entities';
 import { PaymentService } from '../payment/payment.service';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { WalletNumberHelper } from './helpers/wallet-number.helper';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class WalletService {
@@ -106,6 +107,12 @@ export class WalletService {
     else this.logger.log(`Ignoring event: ${event}`);
 
     return { status: true };
+  }
+
+  // Run every 10 minutes
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async handlePendingTransactionSync() {
+    await this.syncPendingTransactions();
   }
 
   private async processSuccessfulCharge(data: PayloadData) {
